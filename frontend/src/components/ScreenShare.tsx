@@ -3,6 +3,7 @@ import { useWebRTC, type Resolution } from '../hooks/useWebRTC.ts';
 
 interface ScreenShareProps {
   roomId: string;
+  isOwner: boolean;
   onLeave: () => void;
 }
 
@@ -40,6 +41,28 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  // Fix for iOS Safari pausing video during fullscreen transitions
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const handlePlay = () => {
+      if (video.paused) {
+        video.play().catch(e => console.log('Autoplay prevented', e));
+      }
+    };
+
+    video.addEventListener('webkitbeginfullscreen', handlePlay);
+    video.addEventListener('webkitendfullscreen', handlePlay);
+    video.addEventListener('fullscreenchange', handlePlay);
+
+    return () => {
+      video.removeEventListener('webkitbeginfullscreen', handlePlay);
+      video.removeEventListener('webkitendfullscreen', handlePlay);
+      video.removeEventListener('fullscreenchange', handlePlay);
     };
   }, []);
 
@@ -124,9 +147,10 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
   );
 };
 
-const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, onLeave }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, peerCount } = useWebRTC(roomId);
+const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) => {
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, peerCount } = useWebRTC(roomId, isOwner);
   const [resolution, setResolution] = useState<Resolution>('max');
+  const [showCursor, setShowCursor] = useState(true);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(roomId);
@@ -148,28 +172,34 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, onLeave }) => {
         </div>
         
         <div style={{ display: 'flex', gap: '1rem' }}>
-          {!localStream ? (
-            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-              <select 
-                className="input-field select-field" 
-                value={resolution} 
-                onChange={(e) => setResolution(e.target.value as Resolution)}
-                style={{ padding: '0.75rem', paddingRight: '2rem' }}
-              >
-                <option value="720p">720p</option>
-                <option value="1080p">1080p</option>
-                <option value="1440p">1440p</option>
-                <option value="4k">4K</option>
-                <option value="max">Max</option>
-              </select>
-              <button className="btn btn-primary" onClick={() => startScreenShare(resolution)}>
-                Start Sharing
+          {isOwner && (
+            !localStream ? (
+              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+                  <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
+                  Show Cursor
+                </label>
+                <select 
+                  className="input-field select-field" 
+                  value={resolution} 
+                  onChange={(e) => setResolution(e.target.value as Resolution)}
+                  style={{ padding: '0.75rem', paddingRight: '2rem' }}
+                >
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                  <option value="1440p">1440p</option>
+                  <option value="4k">4K</option>
+                  <option value="max">Max</option>
+                </select>
+                <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
+                  Start Sharing
+                </button>
+              </div>
+            ) : (
+              <button className="btn btn-danger" onClick={stopScreenShare}>
+                Stop Sharing
               </button>
-            </div>
-          ) : (
-            <button className="btn btn-danger" onClick={stopScreenShare}>
-              Stop Sharing
-            </button>
+            )
           )}
           <button className="btn" onClick={onLeave} style={{ background: 'rgba(255,255,255,0.1)' }}>
             Leave

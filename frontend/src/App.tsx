@@ -5,6 +5,7 @@ import './index.css';
 function App() {
   const [roomId, setRoomId] = useState<string>('');
   const [inRoom, setInRoom] = useState<boolean>(false);
+  const [isOwner, setIsOwner] = useState<boolean>(false);
   const [joinId, setJoinId] = useState<string>('');
   const [error, setError] = useState<string>('');
 
@@ -12,6 +13,7 @@ function App() {
     // Generate a simple random room ID
     const newRoomId = Math.random().toString(36).substring(2, 9);
     setRoomId(newRoomId);
+    setIsOwner(true);
     setInRoom(true);
   };
 
@@ -26,6 +28,7 @@ function App() {
         if (data.exists) {
           setError('');
           setRoomId(joinId.trim());
+          setIsOwner(false);
           setInRoom(true);
         } else {
           setError('Room does not exist. Please check the Room ID.');
@@ -72,7 +75,7 @@ function App() {
           </div>
         </main>
       ) : (
-        <ScreenShare roomId={roomId} onLeave={() => setInRoom(false)} />
+        <ScreenShare roomId={roomId} isOwner={isOwner} onLeave={() => setInRoom(false)} />
       )}
     </div>
   );

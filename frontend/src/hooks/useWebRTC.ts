@@ -17,11 +17,12 @@ const resolutionSettings: Record<Resolution, any> = {
   'max': { width: { ideal: 7680 }, height: { ideal: 4320 }, frameRate: { ideal: 144 } },
 };
 
-export const useWebRTC = (roomId: string | null) => {
+export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const socketRef = useRef<Socket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const usersInRoomRef = useRef<Set<string>>(new Set());
   const [peerCount, setPeerCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
@@ -39,8 +40,10 @@ export const useWebRTC = (roomId: string | null) => {
 
     socketRef.current.on('user-joined', (userId: string) => {
       console.log('User joined:', userId);
-      // Initiate connection to the new user if we are already sharing
-      if (localStream) {
+      usersInRoomRef.current.add(userId);
+      // Initiate connection to the new user immediately if we are the owner,
+      // provided we are sharing a stream
+      if (isOwner && localStream) {
          createPeerConnection(userId, localStream, true);
       }
     });
@@ -70,6 +73,7 @@ export const useWebRTC = (roomId: string | null) => {
     });
 
     socketRef.current.on('user-disconnected', (userId: string) => {
+      usersInRoomRef.current.delete(userId);
       if (peersRef.current.has(userId)) {
         peersRef.current.get(userId)?.close();
         peersRef.current.delete(userId);
@@ -156,10 +160,13 @@ export const useWebRTC = (roomId: string | null) => {
     return modifier;
   };
 
-  const startScreenShare = async (resolution: Resolution = 'max') => {
+  const startScreenShare = async (resolution: Resolution = 'max', showCursor: boolean = true) => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: resolutionSettings[resolution],
+        video: {
+          ...resolutionSettings[resolution],
+          cursor: showCursor ? 'always' : 'never'
+        },
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
@@ -178,21 +185,26 @@ export const useWebRTC = (roomId: string | null) => {
 
       setLocalStream(stream);
 
-      // Renegotiate with existing peers
-      peersRef.current.forEach((pc, userId) => {
-          stream.getTracks().forEach(track => {
-              const senders = pc.getSenders();
-              const isAlreadyAdded = senders.some(sender => sender.track === track);
-              if (!isAlreadyAdded) {
-                  pc.addTrack(track, stream);
-              }
-          });
-          pc.createOffer().then(offer => {
-              return pc.setLocalDescription(offer);
-          }).then(() => {
-              const modifiedSdp = removeBandwidthRestriction(pc.localDescription!.sdp);
-              socketRef.current?.emit('offer', { to: userId, offer: { type: 'offer', sdp: modifiedSdp } });
-          });
+      // Renegotiate with existing peers, and initiate new ones
+      usersInRoomRef.current.forEach(userId => {
+          if (!peersRef.current.has(userId)) {
+               createPeerConnection(userId, stream, true);
+          } else {
+              const pc = peersRef.current.get(userId)!;
+              stream.getTracks().forEach(track => {
+                  const senders = pc.getSenders();
+                  const isAlreadyAdded = senders.some(sender => sender.track === track);
+                  if (!isAlreadyAdded) {
+                      pc.addTrack(track, stream);
+                  }
+              });
+              pc.createOffer().then(offer => {
+                  return pc.setLocalDescription(offer);
+              }).then(() => {
+                  const modifiedSdp = removeBandwidthRestriction(pc.localDescription!.sdp);
+                  socketRef.current?.emit('offer', { to: userId, offer: { type: 'offer', sdp: modifiedSdp } });
+              });
+          }
       });
 
     } catch (err) {
