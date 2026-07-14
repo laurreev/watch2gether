@@ -92,6 +92,10 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
       }
     });
 
+    socketRef.current.on('stop-sharing', () => {
+      setRemoteStreams(new Map());
+    });
+
     socketRef.current.on('user-disconnected', (userId: string) => {
       usersInRoomRef.current.delete(userId);
       setUserCount(usersInRoomRef.current.size);
@@ -243,6 +247,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
          const senders = pc.getSenders();
          senders.forEach(sender => pc.removeTrack(sender));
       });
+      socketRef.current?.emit('stop-sharing', roomId);
     }
   };
 

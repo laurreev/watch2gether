@@ -8,18 +8,35 @@ interface ScreenShareProps {
 }
 
 // Helper component to render a media stream
-const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: boolean }> = ({ stream, label, isLocal }) => {
+const VideoStream: React.FC<{ stream: MediaStream | null; label: string; isLocal: boolean }> = ({ stream, label, isLocal }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [showControls, setShowControls] = useState(false);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(isLocal || false);
+  const [needsGesture, setNeedsGesture] = useState(false);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      
+      const playPromise = videoRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          if (error.name === 'NotAllowedError') {
+             setNeedsGesture(true);
+          }
+        });
+      }
     }
   }, [stream]);
+
+  const handleGesturePlay = () => {
+    if (videoRef.current) {
+      videoRef.current.play();
+      setNeedsGesture(false);
+    }
+  };
 
   useEffect(() => {
     if (videoRef.current) {
@@ -106,7 +123,7 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
 
   return (
     <div 
-      className="video-wrapper"
+      className="video-wrapper" style={{ display: stream ? 'block' : 'none' }}
       onMouseMove={handleInteraction}
       onClick={handleInteraction}
       onTouchStart={handleInteraction}
@@ -117,7 +134,19 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
         playsInline
         className="video-element"
       />
-      <div className={`video-controls-overlay ${showControls ? 'visible' : ''}`}>
+      
+      {needsGesture && (
+        <div 
+          style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', zIndex: 10, cursor: 'pointer' }}
+          onClick={handleGesturePlay}
+        >
+          <button className="btn btn-primary" style={{ padding: '1rem 2rem', fontSize: '1.2rem', borderRadius: '2rem' }}>
+            ▶ Tap to Play Stream
+          </button>
+        </div>
+      )}
+
+      <div className={`video-controls-overlay ${showControls || isLocal ? 'visible' : ''}`}>
         <div className="video-label">
           <div className="indicator"></div>
           {label}
@@ -220,7 +249,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
         )}
         
         {Array.from(remoteStreams.entries()).map(([peerId, stream]) => (
-          <VideoStream key={peerId} stream={stream} label={`Viewer: ${peerId.substring(0, 5)}`} />
+          <VideoStream key={peerId} stream={stream} label={`Viewer: ${peerId.substring(0, 5)}`} isLocal={false} />
         ))}
 
         {!localStream && remoteStreams.size === 0 && (

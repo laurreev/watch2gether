@@ -70,6 +70,11 @@ io.on('connection', (socket) => {
         socket.to(data.to).emit('ice-candidate', { from: socket.id, candidate: data.candidate });
     });
 
+    // Handle stream stop
+    socket.on('stop-sharing', (roomId) => {
+        socket.to(roomId).emit('stop-sharing');
+    });
+
     // Handle Disconnects
     socket.on('disconnecting', () => {
         // Notify all rooms the user is in that they are leaving
