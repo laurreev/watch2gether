@@ -45,11 +45,19 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
 
   const toggleFullscreen = (e: React.MouseEvent) => {
       e.stopPropagation();
-      if (videoRef.current) {
-          if (document.fullscreenElement === videoRef.current) {
+      // Target the wrapper div, not the video element itself, so controls stay visible
+      const wrapper = videoRef.current?.closest('.video-wrapper');
+      if (wrapper) {
+          if (document.fullscreenElement === wrapper) {
              document.exitFullscreen?.();
-          } else if (videoRef.current.requestFullscreen) {
-              videoRef.current.requestFullscreen();
+          } else if (wrapper.requestFullscreen) {
+              wrapper.requestFullscreen();
+          } else if ((wrapper as any).webkitRequestFullscreen) {
+              // Fallback for older WebKit (like some iOS Safari setups if enabled)
+              (wrapper as any).webkitRequestFullscreen();
+          } else if (videoRef.current && (videoRef.current as any).webkitEnterFullscreen) {
+              // Ultimate fallback for iOS Safari which only allows fullscreen on <video> tags
+              (videoRef.current as any).webkitEnterFullscreen();
           }
       }
   };
@@ -117,7 +125,7 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
 };
 
 const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, onLeave }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error } = useWebRTC(roomId);
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, peerCount } = useWebRTC(roomId);
   const [resolution, setResolution] = useState<Resolution>('max');
 
   const handleCopyLink = () => {
@@ -132,6 +140,10 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, onLeave }) => {
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Room:</h2>
           <div className="room-id-badge" onClick={handleCopyLink} title="Click to copy">
              {roomId}
+          </div>
+          <div style={{ marginLeft: '1rem', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '2rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: peerCount > 0 ? '#22c55e' : 'var(--text-muted)' }}></span>
+            {peerCount} Viewer{peerCount !== 1 ? 's' : ''}
           </div>
         </div>
         

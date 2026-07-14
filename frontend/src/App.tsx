@@ -6,6 +6,7 @@ function App() {
   const [roomId, setRoomId] = useState<string>('');
   const [inRoom, setInRoom] = useState<boolean>(false);
   const [joinId, setJoinId] = useState<string>('');
+  const [error, setError] = useState<string>('');
 
   const createRoom = () => {
     // Generate a simple random room ID
@@ -14,11 +15,24 @@ function App() {
     setInRoom(true);
   };
 
-  const joinRoom = (e: React.FormEvent) => {
+  const joinRoom = async (e: React.FormEvent) => {
     e.preventDefault();
     if (joinId.trim()) {
-      setRoomId(joinId.trim());
-      setInRoom(true);
+      try {
+        const socketUrl = import.meta.env.PROD ? '' : 'http://localhost:3000';
+        const res = await fetch(`${socketUrl}/api/room/${joinId.trim()}`);
+        const data = await res.json();
+        
+        if (data.exists) {
+          setError('');
+          setRoomId(joinId.trim());
+          setInRoom(true);
+        } else {
+          setError('Room does not exist. Please check the Room ID.');
+        }
+      } catch (err) {
+        setError('Error connecting to the server.');
+      }
     }
   };
 
@@ -54,6 +68,7 @@ function App() {
                 Join Room
               </button>
             </form>
+            {error && <div style={{ color: 'var(--danger)', marginTop: '1rem' }}>{error}</div>}
           </div>
         </main>
       ) : (

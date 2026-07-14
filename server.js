@@ -21,6 +21,12 @@ const io = new Server(server, {
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
+    // Check if room exists
+    socket.on('check-room', (roomId, callback) => {
+        const room = io.sockets.adapter.rooms.get(roomId);
+        callback(room ? true : false);
+    });
+
     // User joins a room
     socket.on('join-room', (roomId) => {
         socket.join(roomId);
@@ -66,11 +72,23 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
+// API endpoint for checking if a room exists
+app.get('/api/room/:id', (req, res) => {
+    const room = io.sockets.adapter.rooms.get(req.params.id);
+    res.json({ exists: room ? true : false });
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
     // Serve static files from the React frontend app
     app.use(express.static(path.join(__dirname, 'frontend/dist')));
     
+    // API endpoint for checking if a room exists
+    app.get('/api/room/:id', (req, res) => {
+        const room = io.sockets.adapter.rooms.get(req.params.id);
+        res.json({ exists: room ? true : false });
+    });
+
     // Anything that doesn't match a static file, send the React index.html
     app.get(/.*/, (req, res) => {
         res.sendFile(path.join(__dirname, 'frontend/dist', 'index.html'));

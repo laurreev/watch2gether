@@ -22,6 +22,7 @@ export const useWebRTC = (roomId: string | null) => {
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const socketRef = useRef<Socket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const [peerCount, setPeerCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -72,6 +73,7 @@ export const useWebRTC = (roomId: string | null) => {
       if (peersRef.current.has(userId)) {
         peersRef.current.get(userId)?.close();
         peersRef.current.delete(userId);
+        setPeerCount(peersRef.current.size);
       }
       setRemoteStreams(prev => {
         const next = new Map(prev);
@@ -94,6 +96,7 @@ export const useWebRTC = (roomId: string | null) => {
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peersRef.current.set(userId, pc);
+    setPeerCount(peersRef.current.size);
 
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -210,5 +213,5 @@ export const useWebRTC = (roomId: string | null) => {
     }
   };
 
-  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error };
+  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, peerCount };
 };
