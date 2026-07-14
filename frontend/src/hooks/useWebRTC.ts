@@ -10,10 +10,10 @@ const ICE_SERVERS = {
 export type Resolution = '720p' | '1080p' | '1440p' | '4k' | 'max';
 
 const resolutionSettings: Record<Resolution, any> = {
-  '720p': { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
-  '1080p': { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
-  '1440p': { width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 60 } },
-  '4k': { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60 } },
+  '720p': { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 144 } },
+  '1080p': { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 144 } },
+  '1440p': { width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 144 } },
+  '4k': { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 144 } },
   'max': { width: { ideal: 7680 }, height: { ideal: 4320 }, frameRate: { ideal: 144 } },
 };
 
@@ -23,7 +23,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
   const socketRef = useRef<Socket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const usersInRoomRef = useRef<Set<string>>(new Set());
-  const [peerCount, setPeerCount] = useState(0);
+  const [userCount, setUserCount] = useState(1);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -38,9 +38,22 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
       socketRef.current?.emit('join-room', roomId);
     });
 
+    socketRef.current.on('room-users', (users: string[]) => {
+      users.forEach(userId => usersInRoomRef.current.add(userId));
+      setUserCount(usersInRoomRef.current.size + 1);
+      
+      // If we are already sharing, initiate connections to everyone in the room
+      if (isOwner && localStream) {
+        users.forEach(userId => {
+          createPeerConnection(userId, localStream, true);
+        });
+      }
+    });
+
     socketRef.current.on('user-joined', (userId: string) => {
       console.log('User joined:', userId);
       usersInRoomRef.current.add(userId);
+      setUserCount(usersInRoomRef.current.size + 1);
       // Initiate connection to the new user immediately if we are the owner,
       // provided we are sharing a stream
       if (isOwner && localStream) {
@@ -74,10 +87,10 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
 
     socketRef.current.on('user-disconnected', (userId: string) => {
       usersInRoomRef.current.delete(userId);
+      setUserCount(usersInRoomRef.current.size + 1);
       if (peersRef.current.has(userId)) {
         peersRef.current.get(userId)?.close();
         peersRef.current.delete(userId);
-        setPeerCount(peersRef.current.size);
       }
       setRemoteStreams(prev => {
         const next = new Map(prev);
@@ -100,7 +113,6 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
 
     const pc = new RTCPeerConnection(ICE_SERVERS);
     peersRef.current.set(userId, pc);
-    setPeerCount(peersRef.current.size);
 
     if (stream) {
       stream.getTracks().forEach(track => {
@@ -225,5 +237,5 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
     }
   };
 
-  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, peerCount };
+  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount };
 };

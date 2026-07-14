@@ -148,7 +148,7 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
 };
 
 const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, peerCount } = useWebRTC(roomId, isOwner);
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount } = useWebRTC(roomId, isOwner);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
 
@@ -166,8 +166,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
              {roomId}
           </div>
           <div style={{ marginLeft: '1rem', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '2rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: peerCount > 0 ? '#22c55e' : 'var(--text-muted)' }}></span>
-            {peerCount} Viewer{peerCount !== 1 ? 's' : ''}
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: userCount > 1 ? '#22c55e' : 'var(--text-muted)' }}></span>
+            {userCount} People
           </div>
         </div>
         

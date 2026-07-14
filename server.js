@@ -32,6 +32,12 @@ io.on('connection', (socket) => {
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
         
+        const room = io.sockets.adapter.rooms.get(roomId);
+        const usersInRoom = room ? Array.from(room) : [];
+        
+        // Notify the user who just joined about existing users
+        socket.emit('room-users', usersInRoom.filter(id => id !== socket.id));
+
         // Notify others in the room that a new user joined
         // We send the socket.id so the existing users know who to initiate a connection with
         socket.to(roomId).emit('user-joined', socket.id);
