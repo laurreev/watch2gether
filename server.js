@@ -18,6 +18,8 @@ const io = new Server(server, {
     }
 });
 
+const roomHosts = new Map();
+
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
 
@@ -28,9 +30,16 @@ io.on('connection', (socket) => {
     });
 
     // User joins a room
-    socket.on('join-room', (roomId) => {
+    socket.on('join-room', (data) => {
+        const roomId = typeof data === 'string' ? data : data.roomId;
+        const isOwner = typeof data === 'object' ? data.isOwner : false;
+
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
+        
+        if (isOwner) {
+            roomHosts.set(roomId, socket.id);
+        }
         
         const room = io.sockets.adapter.rooms.get(roomId);
         const usersInRoom = room ? Array.from(room) : [];
@@ -66,7 +75,12 @@ io.on('connection', (socket) => {
         // Notify all rooms the user is in that they are leaving
         for (const room of socket.rooms) {
             if (room !== socket.id) {
-                socket.to(room).emit('user-disconnected', socket.id);
+                if (roomHosts.get(room) === socket.id) {
+                    socket.to(room).emit('host-disconnected');
+                    roomHosts.delete(room);
+                } else {
+                    socket.to(room).emit('user-disconnected', socket.id);
+                }
             }
         }
     });

@@ -55,11 +55,13 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
       }
     };
 
+    video.addEventListener('pause', handlePlay);
     video.addEventListener('webkitbeginfullscreen', handlePlay);
     video.addEventListener('webkitendfullscreen', handlePlay);
     video.addEventListener('fullscreenchange', handlePlay);
 
     return () => {
+      video.removeEventListener('pause', handlePlay);
       video.removeEventListener('webkitbeginfullscreen', handlePlay);
       video.removeEventListener('webkitendfullscreen', handlePlay);
       video.removeEventListener('fullscreenchange', handlePlay);
@@ -148,7 +150,7 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
 };
 
 const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount } = useWebRTC(roomId, isOwner);
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount } = useWebRTC(roomId, isOwner, onLeave);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
 
@@ -159,23 +161,23 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
 
   return (
     <main className="room-container">
-      <div className="room-header glass" style={{ padding: '1rem 2rem', borderRadius: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+      <div className="room-header glass">
+        <div className="room-info">
           <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Room:</h2>
           <div className="room-id-badge" onClick={handleCopyLink} title="Click to copy">
              {roomId}
           </div>
-          <div style={{ marginLeft: '1rem', padding: '0.5rem 1rem', background: 'rgba(255,255,255,0.1)', borderRadius: '2rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          <div className="viewer-badge">
             <span style={{ width: 8, height: 8, borderRadius: '50%', background: userCount > 1 ? '#22c55e' : 'var(--text-muted)' }}></span>
             {userCount} People
           </div>
         </div>
         
-        <div style={{ display: 'flex', gap: '1rem' }}>
+        <div className="room-controls">
           {isOwner && (
             !localStream ? (
-              <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+              <div className="share-controls">
+                <label className="cursor-toggle">
                   <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
                   Show Cursor
                 </label>
@@ -183,7 +185,6 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                   className="input-field select-field" 
                   value={resolution} 
                   onChange={(e) => setResolution(e.target.value as Resolution)}
-                  style={{ padding: '0.75rem', paddingRight: '2rem' }}
                 >
                   <option value="720p">720p</option>
                   <option value="1080p">1080p</option>
@@ -201,7 +202,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
               </button>
             )
           )}
-          <button className="btn" onClick={onLeave} style={{ background: 'rgba(255,255,255,0.1)' }}>
+          <button className="btn btn-leave" onClick={onLeave}>
             Leave
           </button>
         </div>

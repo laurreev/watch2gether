@@ -17,7 +17,7 @@ const resolutionSettings: Record<Resolution, any> = {
   'max': { width: { ideal: 7680 }, height: { ideal: 4320 }, frameRate: { ideal: 144 } },
 };
 
-export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
+export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHostLeft?: () => void) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const socketRef = useRef<Socket | null>(null);
@@ -35,7 +35,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
 
     socketRef.current.on('connect', () => {
       console.log('Connected to signaling server');
-      socketRef.current?.emit('join-room', roomId);
+      socketRef.current?.emit('join-room', { roomId, isOwner });
     });
 
     socketRef.current.on('room-users', (users: string[]) => {
@@ -82,6 +82,12 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false) => {
       const pc = peersRef.current.get(data.from);
       if (pc) {
         await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    });
+
+    socketRef.current.on('host-disconnected', () => {
+      if (onHostLeft) {
+        onHostLeft();
       }
     });
 
