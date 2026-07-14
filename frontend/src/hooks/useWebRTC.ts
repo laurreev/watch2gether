@@ -7,6 +7,16 @@ const ICE_SERVERS = {
   ]
 };
 
+export type Resolution = '720p' | '1080p' | '1440p' | '4k' | 'max';
+
+const resolutionSettings: Record<Resolution, any> = {
+  '720p': { width: { ideal: 1280 }, height: { ideal: 720 }, frameRate: { ideal: 60 } },
+  '1080p': { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 60 } },
+  '1440p': { width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 60 } },
+  '4k': { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 60 } },
+  'max': { width: { ideal: 7680 }, height: { ideal: 4320 }, frameRate: { ideal: 144 } },
+};
+
 export const useWebRTC = (roomId: string | null) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
@@ -143,14 +153,10 @@ export const useWebRTC = (roomId: string | null) => {
     return modifier;
   };
 
-  const startScreenShare = async () => {
+  const startScreenShare = async (resolution: Resolution = 'max') => {
     try {
       const stream = await navigator.mediaDevices.getDisplayMedia({
-        video: {
-          width: { ideal: 7680 }, // Target up to 8K
-          height: { ideal: 4320 },
-          frameRate: { ideal: 144 }, // Target up to 144fps
-        },
+        video: resolutionSettings[resolution],
         audio: {
           echoCancellation: false,
           noiseSuppression: false,

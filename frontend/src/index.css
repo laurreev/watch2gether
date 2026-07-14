@@ -213,15 +213,37 @@ body {
   width: 100%;
   height: 100%;
   object-fit: contain;
+  pointer-events: none;
+}
+
+.video-element::-webkit-media-controls {
+  display: none !important;
+}
+
+.video-controls-overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 4rem 1rem 1rem 1rem;
+  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+}
+
+.video-controls-overlay.visible {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 .video-label {
-  position: absolute;
-  bottom: 1rem;
-  left: 1rem;
   background: rgba(0,0,0,0.6);
   backdrop-filter: blur(4px);
-  padding: 0.25rem 0.75rem;
+  padding: 0.5rem 1rem;
   border-radius: 0.5rem;
   font-size: 0.875rem;
   font-weight: 500;
@@ -247,4 +269,54 @@ body {
 .video-wrapper:fullscreen {
    border-radius: 0;
    border: none;
+}
+
+/* Video Actions */
+.video-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.icon-btn {
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  color: white;
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-size: 1.25rem;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.icon-btn:hover {
+  background: rgba(255, 255, 255, 0.25);
+  transform: scale(1.05);
+}
+
+.volume-control {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(0,0,0,0.6);
+  backdrop-filter: blur(4px);
+  padding: 0.25rem 0.75rem 0.25rem 0.25rem;
+  border-radius: 2rem;
+}
+
+.volume-slider {
+  width: 80px;
+  cursor: pointer;
+  accent-color: var(--primary);
+}
+
+@media (max-width: 600px) {
+  .volume-slider {
+    width: 60px;
+  }
 }

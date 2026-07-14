@@ -1,5 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { useWebRTC } from '../hooks/useWebRTC.ts';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { useWebRTC, type Resolution } from '../hooks/useWebRTC.ts';
 
 interface ScreenShareProps {
   roomId: string;
@@ -9,6 +9,10 @@ interface ScreenShareProps {
 // Helper component to render a media stream
 const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: boolean }> = ({ stream, label, isLocal }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [showControls, setShowControls] = useState(false);
+  const [volume, setVolume] = useState(1);
+  const [isMuted, setIsMuted] = useState(isLocal || false);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (videoRef.current && stream) {
@@ -16,28 +20,97 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
     }
   }, [stream]);
 
-  const toggleFullscreen = () => {
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.volume = volume;
+      videoRef.current.muted = isMuted;
+    }
+  }, [volume, isMuted]);
+
+  const handleInteraction = useCallback(() => {
+    setShowControls(true);
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current);
+    }
+    timeoutRef.current = setTimeout(() => {
+      setShowControls(false);
+    }, 3000);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
+    };
+  }, []);
+
+  const toggleFullscreen = (e: React.MouseEvent) => {
+      e.stopPropagation();
       if (videoRef.current) {
-          if (videoRef.current.requestFullscreen) {
+          if (document.fullscreenElement === videoRef.current) {
+             document.exitFullscreen?.();
+          } else if (videoRef.current.requestFullscreen) {
               videoRef.current.requestFullscreen();
           }
       }
   };
 
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+      e.stopPropagation();
+      const newVolume = parseFloat(e.target.value);
+      setVolume(newVolume);
+      if (newVolume > 0 && isMuted && !isLocal) {
+          setIsMuted(false);
+      }
+      handleInteraction();
+  };
+
+  const toggleMute = (e: React.MouseEvent) => {
+      e.stopPropagation();
+      if (isLocal) return; // Prevent unmuting local stream
+      setIsMuted(!isMuted);
+      handleInteraction();
+  };
+
   return (
-    <div className="video-wrapper">
+    <div 
+      className="video-wrapper"
+      onMouseMove={handleInteraction}
+      onClick={handleInteraction}
+      onTouchStart={handleInteraction}
+    >
       <video
         ref={videoRef}
         autoPlay
         playsInline
-        muted={isLocal} // Mute local stream to prevent feedback loop
         className="video-element"
-        onClick={toggleFullscreen}
-        title="Click to fullscreen"
       />
-      <div className="video-label">
-        <div className="indicator"></div>
-        {label}
+      <div className={`video-controls-overlay ${showControls ? 'visible' : ''}`}>
+        <div className="video-label">
+          <div className="indicator"></div>
+          {label}
+        </div>
+        
+        <div className="video-actions">
+          {!isLocal && (
+            <div className="volume-control" onClick={(e) => e.stopPropagation()}>
+              <button className="icon-btn" onClick={toggleMute} title={isMuted ? "Unmute" : "Mute"}>
+                {isMuted || volume === 0 ? '🔇' : '🔊'}
+              </button>
+              <input 
+                type="range" 
+                min="0" 
+                max="1" 
+                step="0.05" 
+                value={isMuted ? 0 : volume} 
+                onChange={handleVolumeChange}
+                className="volume-slider"
+              />
+            </div>
+          )}
+          <button className="icon-btn" onClick={toggleFullscreen} title="Full Screen">
+             ⛶
+          </button>
+        </div>
       </div>
     </div>
   );
@@ -45,6 +118,7 @@ const VideoStream: React.FC<{ stream: MediaStream; label: string; isLocal?: bool
 
 const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, onLeave }) => {
   const { localStream, remoteStreams, startScreenShare, stopScreenShare, error } = useWebRTC(roomId);
+  const [resolution, setResolution] = useState<Resolution>('max');
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(roomId);
@@ -63,9 +137,23 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, onLeave }) => {
         
         <div style={{ display: 'flex', gap: '1rem' }}>
           {!localStream ? (
-            <button className="btn btn-primary" onClick={startScreenShare}>
-              Start Sharing
-            </button>
+            <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+              <select 
+                className="input-field select-field" 
+                value={resolution} 
+                onChange={(e) => setResolution(e.target.value as Resolution)}
+                style={{ padding: '0.75rem', paddingRight: '2rem' }}
+              >
+                <option value="720p">720p</option>
+                <option value="1080p">1080p</option>
+                <option value="1440p">1440p</option>
+                <option value="4k">4K</option>
+                <option value="max">Max</option>
+              </select>
+              <button className="btn btn-primary" onClick={() => startScreenShare(resolution)}>
+                Start Sharing
+              </button>
+            </div>
           ) : (
             <button className="btn btn-danger" onClick={stopScreenShare}>
               Stop Sharing
