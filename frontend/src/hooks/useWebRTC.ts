@@ -14,7 +14,7 @@ const resolutionSettings: Record<Resolution, any> = {
   '1080p': { width: { ideal: 1920 }, height: { ideal: 1080 }, frameRate: { ideal: 144 } },
   '1440p': { width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 144 } },
   '4k': { width: { ideal: 3840 }, height: { ideal: 2160 }, frameRate: { ideal: 144 } },
-  'max': { width: { ideal: 7680 }, height: { ideal: 4320 }, frameRate: { ideal: 144 } },
+  'max': { width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 144 } },
 };
 
 export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHostLeft?: () => void) => {
@@ -151,8 +151,8 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
              pc.getSenders().forEach(sender => {
                  if (sender.track?.kind === 'video') {
                      const params = sender.getParameters();
-                     // Prioritize smooth video over pixel-perfect resolution when bandwidth/CPU is scarce
-                     params.degradationPreference = 'balanced';
+                     // Prioritize pixel-perfect resolution per user request
+                     params.degradationPreference = 'maintain-resolution';
                      sender.setParameters(params).catch(e => console.warn('Cannot set degradation params', e));
                  }
              });

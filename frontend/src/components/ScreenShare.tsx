@@ -218,8 +218,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                   <option value="720p">720p</option>
                   <option value="1080p">1080p</option>
                   <option value="1440p">1440p</option>
-                  <option value="4k">4K</option>
-                  <option value="max">Max</option>
+                  <option value="max">Max Quality (1440p)</option>
                 </select>
                 <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
                   Start Sharing
