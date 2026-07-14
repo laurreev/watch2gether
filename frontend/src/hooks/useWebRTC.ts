@@ -1,0 +1,208 @@
+import { useEffect, useRef, useState } from 'react';
+import { io, Socket } from 'socket.io-client';
+
+const ICE_SERVERS = {
+  iceServers: [
+    { urls: 'stun:stun.l.google.com:19302' },
+  ]
+};
+
+export const useWebRTC = (roomId: string | null) => {
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
+  const socketRef = useRef<Socket | null>(null);
+  const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!roomId) return;
+
+    // Connect to signaling server
+    const socketUrl = import.meta.env.PROD ? window.location.origin : 'http://localhost:3000';
+    socketRef.current = io(socketUrl);
+
+    socketRef.current.on('connect', () => {
+      console.log('Connected to signaling server');
+      socketRef.current?.emit('join-room', roomId);
+    });
+
+    socketRef.current.on('user-joined', (userId: string) => {
+      console.log('User joined:', userId);
+      // Initiate connection to the new user if we are already sharing
+      if (localStream) {
+         createPeerConnection(userId, localStream, true);
+      }
+    });
+
+    socketRef.current.on('offer', async (data: { from: string, offer: RTCSessionDescriptionInit }) => {
+      const pc = createPeerConnection(data.from, localStream, false);
+      await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
+      const answer = await pc.createAnswer();
+      await pc.setLocalDescription(answer);
+      
+      const modifiedSdp = removeBandwidthRestriction(pc.localDescription!.sdp);
+      socketRef.current?.emit('answer', { to: data.from, answer: { type: answer.type, sdp: modifiedSdp } });
+    });
+
+    socketRef.current.on('answer', async (data: { from: string, answer: RTCSessionDescriptionInit }) => {
+      const pc = peersRef.current.get(data.from);
+      if (pc) {
+        await pc.setRemoteDescription(new RTCSessionDescription(data.answer));
+      }
+    });
+
+    socketRef.current.on('ice-candidate', async (data: { from: string, candidate: RTCIceCandidateInit }) => {
+      const pc = peersRef.current.get(data.from);
+      if (pc) {
+        await pc.addIceCandidate(new RTCIceCandidate(data.candidate));
+      }
+    });
+
+    socketRef.current.on('user-disconnected', (userId: string) => {
+      if (peersRef.current.has(userId)) {
+        peersRef.current.get(userId)?.close();
+        peersRef.current.delete(userId);
+      }
+      setRemoteStreams(prev => {
+        const next = new Map(prev);
+        next.delete(userId);
+        return next;
+      });
+    });
+
+    return () => {
+      socketRef.current?.disconnect();
+      peersRef.current.forEach(pc => pc.close());
+      peersRef.current.clear();
+    };
+  }, [roomId, localStream]);
+
+  const createPeerConnection = (userId: string, stream: MediaStream | null, isInitiator: boolean) => {
+    if (peersRef.current.has(userId)) {
+        return peersRef.current.get(userId)!;
+    }
+
+    const pc = new RTCPeerConnection(ICE_SERVERS);
+    peersRef.current.set(userId, pc);
+
+    if (stream) {
+      stream.getTracks().forEach(track => {
+          pc.addTrack(track, stream);
+      });
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socketRef.current?.emit('ice-candidate', { to: userId, candidate: event.candidate });
+      }
+    };
+
+    pc.ontrack = (event) => {
+      setRemoteStreams(prev => {
+        const next = new Map(prev);
+        next.set(userId, event.streams[0]);
+        return next;
+      });
+    };
+    
+    // Ensure degradation preference is high quality
+    pc.addEventListener('connectionstatechange', () => {
+        if (pc.connectionState === 'connected') {
+             pc.getSenders().forEach(sender => {
+                 if (sender.track?.kind === 'video') {
+                     const params = sender.getParameters();
+                     // Prioritize maintaining resolution over framerate when bandwidth is scarce
+                     // Or 'maintain-framerate' if FPS is more important. We choose resolution for screen sharing.
+                     params.degradationPreference = 'maintain-resolution';
+                     sender.setParameters(params).catch(e => console.warn('Cannot set degradation params', e));
+                 }
+             });
+        }
+    });
+
+    if (isInitiator) {
+      pc.createOffer().then(offer => {
+        return pc.setLocalDescription(offer);
+      }).then(() => {
+        const modifiedSdp = removeBandwidthRestriction(pc.localDescription!.sdp);
+        socketRef.current?.emit('offer', { to: userId, offer: { type: 'offer', sdp: modifiedSdp } });
+      }).catch(e => console.error("Error creating offer", e));
+    }
+
+    return pc;
+  };
+
+  const removeBandwidthRestriction = (sdp: string) => {
+    let modifier = sdp;
+    if (modifier.indexOf('b=AS:') === -1) {
+      // Insert before video m-line or modify existing
+      modifier = modifier.replace(/m=video (.*)\r\n/g, 'm=video $1\r\nb=AS:100000\r\n');
+    } else {
+      modifier = modifier.replace(/b=AS:.*\r\n/g, 'b=AS:100000\r\n');
+    }
+    return modifier;
+  };
+
+  const startScreenShare = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({
+        video: {
+          width: { ideal: 7680 }, // Target up to 8K
+          height: { ideal: 4320 },
+          frameRate: { ideal: 144 }, // Target up to 144fps
+        },
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        }
+      });
+      
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+         videoTrack.contentHint = 'detail'; // Prioritize clarity
+      }
+
+      videoTrack.onended = () => {
+        stopScreenShare();
+      };
+
+      setLocalStream(stream);
+
+      // Renegotiate with existing peers
+      peersRef.current.forEach((pc, userId) => {
+          stream.getTracks().forEach(track => {
+              const senders = pc.getSenders();
+              const isAlreadyAdded = senders.some(sender => sender.track === track);
+              if (!isAlreadyAdded) {
+                  pc.addTrack(track, stream);
+              }
+          });
+          pc.createOffer().then(offer => {
+              return pc.setLocalDescription(offer);
+          }).then(() => {
+              const modifiedSdp = removeBandwidthRestriction(pc.localDescription!.sdp);
+              socketRef.current?.emit('offer', { to: userId, offer: { type: 'offer', sdp: modifiedSdp } });
+          });
+      });
+
+    } catch (err) {
+      console.error('Error sharing screen:', err);
+      setError('Could not start screen share. Please check permissions or browser support.');
+    }
+  };
+
+  const stopScreenShare = () => {
+    if (localStream) {
+      localStream.getTracks().forEach(track => track.stop());
+      setLocalStream(null);
+      // Remove tracks from all peers
+      peersRef.current.forEach(pc => {
+         const senders = pc.getSenders();
+         senders.forEach(sender => pc.removeTrack(sender));
+      });
+    }
+  };
+
+  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error };
+};
