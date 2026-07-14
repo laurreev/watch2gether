@@ -151,9 +151,8 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
              pc.getSenders().forEach(sender => {
                  if (sender.track?.kind === 'video') {
                      const params = sender.getParameters();
-                     // Prioritize maintaining resolution over framerate when bandwidth is scarce
-                     // Or 'maintain-framerate' if FPS is more important. We choose resolution for screen sharing.
-                     params.degradationPreference = 'maintain-resolution';
+                     // Prioritize smooth video over pixel-perfect resolution when bandwidth/CPU is scarce
+                     params.degradationPreference = 'balanced';
                      sender.setParameters(params).catch(e => console.warn('Cannot set degradation params', e));
                  }
              });
@@ -199,7 +198,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
       
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {
-         videoTrack.contentHint = 'detail'; // Prioritize clarity
+         videoTrack.contentHint = 'motion'; // Prioritize framerate for videos
       }
 
       videoTrack.onended = () => {
