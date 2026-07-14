@@ -168,8 +168,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
              {roomId}
           </div>
           <div className="viewer-badge">
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: userCount > 1 ? '#22c55e' : 'var(--text-muted)' }}></span>
-            {userCount} People
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: userCount > 0 ? '#22c55e' : 'var(--text-muted)' }}></span>
+            {userCount} Viewer{userCount !== 1 ? 's' : ''}
           </div>
         </div>
         

@@ -24,7 +24,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
   const socketRef = useRef<Socket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const usersInRoomRef = useRef<Set<string>>(new Set());
-  const [userCount, setUserCount] = useState(1);
+  const [userCount, setUserCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -41,7 +41,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
 
     socketRef.current.on('room-users', (users: string[]) => {
       users.forEach(userId => usersInRoomRef.current.add(userId));
-      setUserCount(usersInRoomRef.current.size + 1);
+      setUserCount(usersInRoomRef.current.size);
       
       // If we are already sharing, initiate connections to everyone in the room
       if (isOwner && localStreamRef.current) {
@@ -54,7 +54,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
     socketRef.current.on('user-joined', (userId: string) => {
       console.log('User joined:', userId);
       usersInRoomRef.current.add(userId);
-      setUserCount(usersInRoomRef.current.size + 1);
+      setUserCount(usersInRoomRef.current.size);
       // Initiate connection to the new user immediately if we are the owner,
       // provided we are sharing a stream
       if (isOwner && localStreamRef.current) {
@@ -94,7 +94,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
 
     socketRef.current.on('user-disconnected', (userId: string) => {
       usersInRoomRef.current.delete(userId);
-      setUserCount(usersInRoomRef.current.size + 1);
+      setUserCount(usersInRoomRef.current.size);
       if (peersRef.current.has(userId)) {
         peersRef.current.get(userId)?.close();
         peersRef.current.delete(userId);
