@@ -19,6 +19,7 @@ const resolutionSettings: Record<Resolution, any> = {
 
 export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHostLeft?: () => void) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const localStreamRef = useRef<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const socketRef = useRef<Socket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
@@ -43,9 +44,9 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
       setUserCount(usersInRoomRef.current.size + 1);
       
       // If we are already sharing, initiate connections to everyone in the room
-      if (isOwner && localStream) {
+      if (isOwner && localStreamRef.current) {
         users.forEach(userId => {
-          createPeerConnection(userId, localStream, true);
+          createPeerConnection(userId, localStreamRef.current, true);
         });
       }
     });
@@ -56,13 +57,13 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
       setUserCount(usersInRoomRef.current.size + 1);
       // Initiate connection to the new user immediately if we are the owner,
       // provided we are sharing a stream
-      if (isOwner && localStream) {
-         createPeerConnection(userId, localStream, true);
+      if (isOwner && localStreamRef.current) {
+         createPeerConnection(userId, localStreamRef.current, true);
       }
     });
 
     socketRef.current.on('offer', async (data: { from: string, offer: RTCSessionDescriptionInit }) => {
-      const pc = createPeerConnection(data.from, localStream, false);
+      const pc = createPeerConnection(data.from, localStreamRef.current, false);
       await pc.setRemoteDescription(new RTCSessionDescription(data.offer));
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
@@ -110,7 +111,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
       peersRef.current.forEach(pc => pc.close());
       peersRef.current.clear();
     };
-  }, [roomId, localStream]);
+  }, [roomId, isOwner]);
 
   const createPeerConnection = (userId: string, stream: MediaStream | null, isInitiator: boolean) => {
     if (peersRef.current.has(userId)) {
@@ -202,6 +203,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
       };
 
       setLocalStream(stream);
+      localStreamRef.current = stream;
 
       // Renegotiate with existing peers, and initiate new ones
       usersInRoomRef.current.forEach(userId => {
@@ -232,9 +234,10 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
   };
 
   const stopScreenShare = () => {
-    if (localStream) {
-      localStream.getTracks().forEach(track => track.stop());
+    if (localStreamRef.current) {
+      localStreamRef.current.getTracks().forEach(track => track.stop());
       setLocalStream(null);
+      localStreamRef.current = null;
       // Remove tracks from all peers
       peersRef.current.forEach(pc => {
          const senders = pc.getSenders();
