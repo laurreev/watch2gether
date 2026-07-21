@@ -233,7 +233,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
     if (!socket || isOwner) return;
 
     const onPlayMedia = async (media: any) => {
-      setPlayingMedia(media);
+      // Strip the host's URL so we don't accidentally load it and get an OOPS error
+      setPlayingMedia({ ...media, url: '' });
       setActiveServer(media.serverStr || '1');
       if (media.originalUrl) {
         setIsExtractingServer(true);
@@ -242,6 +243,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
           const newUrl = await getVaporpicIframe(media.originalUrl, media.serverStr || '1');
           if (newUrl) {
             setPlayingMedia((prev: any) => prev ? { ...prev, url: newUrl } : null);
+          } else {
+            console.error("Failed to generate viewer URL");
           }
         } catch (e) {
           console.error(e);
