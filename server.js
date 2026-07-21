@@ -190,9 +190,36 @@ app.get('/api/stream', (req, res) => {
     });
 });
 
+// API endpoint for getting episode count for TV shows
+app.get('/api/episodes', (req, res) => {
+    const { url } = req.query;
+    if (!url) {
+        return res.status(400).json({ error: 'Missing url parameter' });
+    }
+    
+    const pythonScript = path.join(__dirname, 'simple.py');
+    const command = `python "${pythonScript}" --action episodes --url "${url}"`;
+    
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error executing script: ${error.message}`);
+            return res.status(500).json({ error: 'Failed to fetch episodes' });
+        }
+        
+        try {
+            const result = JSON.parse(stdout);
+            res.json(result);
+        } catch (parseError) {
+            console.error(`Error parsing script output: ${parseError.message}`);
+            res.status(500).json({ error: 'Invalid response from episodes script' });
+        }
+    });
+});
+
+// API endpoint for getting iframe url via Python script extraction
 // API endpoint for getting iframe url via Python script extraction
 app.get('/api/extract', (req, res) => {
-    const { url, server, loc } = req.query;
+    const { url, server, loc, ep } = req.query;
     if (!url) {
         return res.status(400).json({ error: 'Missing url parameter' });
     }
@@ -204,6 +231,9 @@ app.get('/api/extract', (req, res) => {
     }
     if (loc) {
         command += ` --loc "${loc}"`;
+    }
+    if (ep) {
+        command += ` --ep "${ep}"`;
     }
     
     // Set a longer timeout (30s) since Playwright needs time to load and click

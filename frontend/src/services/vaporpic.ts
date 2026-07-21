@@ -9,6 +9,8 @@ export interface VaporpicMediaItem {
   poster_url?: string;
   year?: string;
   url?: string;
+  originalUrl?: string;
+  episode?: number;
 }
 
 /**
@@ -58,7 +60,22 @@ export const getVaporpicStream = async (mediaId: string): Promise<string> => {
   }
 };
 
-export const getVaporpicIframe = async (url: string, server?: string): Promise<string> => {
+export const getEpisodes = async (url: string): Promise<number> => {
+  try {
+    const response = await fetch(`/api/episodes?url=${encodeURIComponent(url)}`);
+    if (!response.ok) {
+      console.error(`Error fetching episodes: ${response.statusText}`);
+      return 1;
+    }
+    const data = await response.json();
+    return data.episodes || 1;
+  } catch (error) {
+    console.error('Error fetching episodes:', error);
+    return 1;
+  }
+};
+
+export const getVaporpicIframe = async (url: string, server?: string, ep?: string): Promise<string> => {
   try {
     let loc = 'US';
     try {
@@ -82,6 +99,7 @@ export const getVaporpicIframe = async (url: string, server?: string): Promise<s
 
     let reqUrl = `/api/extract?url=${encodeURIComponent(url)}&loc=${loc}`;
     if (server) reqUrl += `&server=${encodeURIComponent(server)}`;
+    if (ep) reqUrl += `&ep=${encodeURIComponent(ep)}`;
     
     const response = await fetch(reqUrl);
     if (!response.ok) {

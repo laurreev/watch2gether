@@ -636,6 +636,7 @@ if __name__ == "__main__":
     parser.add_argument('--url', help='Media URL for extract')
     parser.add_argument('--server', help='Server number for extract')
     parser.add_argument('--loc', help='Client location code')
+    parser.add_argument('--ep', help='Episode number for TV shows')
     
     args = parser.parse_args()
 
@@ -714,7 +715,7 @@ if __name__ == "__main__":
                     mid = url.strip('/').split('-')[-1]
                     loc = get_loc()
                     timestamp = str(int(time.time()))
-                    eps = "1"
+                    eps = args.ep if args.ep else "1"
                     
                     plaintext = f"{mid}+{eps}+{srv}+{loc}+{timestamp}"
                     key = hashlib.sha256(loc.encode()).digest()
@@ -742,6 +743,23 @@ if __name__ == "__main__":
             print(json.dumps({"url": m3u8_result[0], "quality": "auto"}))
         else:
             print(json.dumps({"error": "Failed to extract m3u8"}))
+
+    elif args.action == "episodes" and args.url:
+        import re
+        target_url = args.url
+        if target_url.startswith('/'):
+            target_url = f"https://fmoviess.org{target_url}"
+            
+        try:
+            r = requests.get(target_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=10)
+            ep_matches = re.findall(r'Episode\s+(\d+)', r.text, re.IGNORECASE)
+            if ep_matches:
+                unique_eps = sorted(list(set(ep_matches)), key=lambda x: int(x))
+                print(json.dumps({"episodes": len(unique_eps)}))
+            else:
+                print(json.dumps({"episodes": 1}))
+        except Exception as e:
+            print(json.dumps({"error": str(e), "episodes": 1}))
 
     else:
         main()

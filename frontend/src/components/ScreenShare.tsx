@@ -186,7 +186,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
-  const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string} | null>(null);
+  const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string, episode?: number} | null>(null);
   const [activeServer, setActiveServer] = useState('1');
   const [isExtractingServer, setIsExtractingServer] = useState(false);
 
@@ -217,7 +217,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
     setIsExtractingServer(true);
     try {
       const { getVaporpicIframe } = await import('../services/vaporpic.ts');
-      const newUrl = await getVaporpicIframe(playingMedia.originalUrl, serverStr);
+      const newUrl = await getVaporpicIframe(playingMedia.originalUrl, serverStr, playingMedia.episode?.toString());
       if (newUrl) {
          setPlayingMedia({ ...playingMedia, url: newUrl });
       }
@@ -241,7 +241,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
         setIsExtractingServer(true);
         try {
           const { getVaporpicIframe } = await import('../services/vaporpic.ts');
-          const newUrl = await getVaporpicIframe(media.originalUrl, media.serverStr || '1');
+          const newUrl = await getVaporpicIframe(media.originalUrl, media.serverStr || '1', media.episode?.toString());
           if (newUrl) {
             setPlayingMedia((prev: any) => prev ? { ...prev, url: newUrl } : null);
           }
@@ -363,9 +363,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
 
         {playingMedia && (
            <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', minHeight: '600px', borderRadius: '1rem', flexDirection: 'column', gap: '1rem', background: '#000', border: '1px solid var(--border)', overflow: 'hidden' }}>
-               <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
                  <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
-                   <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}</h2>
+                   <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}{playingMedia.episode ? ` (Episode ${playingMedia.episode})` : ''}</h2>
                    <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{playingMedia.type}</span>
                  </div>
                  {isExtractingServer ? (
