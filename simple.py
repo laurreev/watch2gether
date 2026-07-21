@@ -632,9 +632,11 @@ if __name__ == "__main__":
     parser.add_argument("--type", type=str, help="Media type (movie, tvod, anime)")
     parser.add_argument("--genre", type=str, help="Genre filter")
     parser.add_argument("--year", type=str, help="Release year filter")
-    parser.add_argument("--id", type=str, help="Media ID or title string for streaming")
-    parser.add_argument("--url", type=str, help="Full URL for extraction")
-    parser.add_argument("--server", type=str, default="1", help="Server number (1, 2, 3)")
+    parser.add_argument('--id', help='Media ID for stream')
+    parser.add_argument('--url', help='Media URL for extract')
+    parser.add_argument('--server', help='Server number for extract')
+    parser.add_argument('--loc', help='Client location code')
+    
     args = parser.parse_args()
 
     if args.action == "search":
@@ -671,6 +673,7 @@ if __name__ == "__main__":
             
         server = args.server or '1'
         target_url = args.url
+        client_loc = args.loc
         if target_url.startswith('/'):
             target_url = f"https://fmoviess.org{target_url}"
         
@@ -687,6 +690,8 @@ if __name__ == "__main__":
             
             try:
                 def get_loc():
+                    if client_loc:
+                        return client_loc
                     try:
                         r = requests.get("https://fmoviess.org/cdn-cgi/trace", headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"}, timeout=5)
                         for line in r.text.strip().split('\n'):

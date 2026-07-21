@@ -60,7 +60,21 @@ export const getVaporpicStream = async (mediaId: string): Promise<string> => {
 
 export const getVaporpicIframe = async (url: string, server?: string): Promise<string> => {
   try {
-    let reqUrl = `/api/extract?url=${encodeURIComponent(url)}`;
+    let loc = 'US';
+    try {
+      const traceRes = await fetch('https://1.1.1.1/cdn-cgi/trace');
+      const traceText = await traceRes.text();
+      for (const line of traceText.split('\n')) {
+        if (line.startsWith('loc=')) {
+          loc = line.split('=')[1].trim();
+          break;
+        }
+      }
+    } catch (e) {
+      console.warn('Could not fetch client loc', e);
+    }
+
+    let reqUrl = `/api/extract?url=${encodeURIComponent(url)}&loc=${loc}`;
     if (server) reqUrl += `&server=${encodeURIComponent(server)}`;
     
     const response = await fetch(reqUrl);

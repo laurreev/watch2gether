@@ -174,7 +174,7 @@ app.get('/api/stream', (req, res) => {
 
 // API endpoint for getting iframe url via Python script extraction
 app.get('/api/extract', (req, res) => {
-    const { url, server } = req.query;
+    const { url, server, loc } = req.query;
     if (!url) {
         return res.status(400).json({ error: 'Missing url parameter' });
     }
@@ -183,6 +183,9 @@ app.get('/api/extract', (req, res) => {
     let command = `python "${pythonScript}" --action extract --url "${url}"`;
     if (server) {
         command += ` --server "${server}"`;
+    }
+    if (loc) {
+        command += ` --loc "${loc}"`;
     }
     
     // Set a longer timeout (30s) since Playwright needs time to load and click
