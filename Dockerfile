@@ -4,9 +4,9 @@ FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
 # Set working directory
 WORKDIR /app
 
-# Install Node.js (v18)
+# Install Node.js (v22 LTS)
 RUN apt-get update && apt-get install -y curl
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
 RUN apt-get install -y nodejs
 
 # Copy requirements and install python dependencies
