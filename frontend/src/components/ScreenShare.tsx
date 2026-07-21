@@ -233,8 +233,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
     if (!socket || isOwner) return;
 
     const onPlayMedia = async (media: any) => {
-      // Strip the host's URL so we don't accidentally load it and get an OOPS error
-      setPlayingMedia({ ...media, url: '' });
+      // Clear the URL from the host so the viewer doesn't get an OOPS error
+      const mediaWithoutUrl = { ...media, url: '' };
+      setPlayingMedia(mediaWithoutUrl);
       setActiveServer(media.serverStr || '1');
       if (media.originalUrl) {
         setIsExtractingServer(true);
@@ -243,8 +244,6 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
           const newUrl = await getVaporpicIframe(media.originalUrl, media.serverStr || '1');
           if (newUrl) {
             setPlayingMedia((prev: any) => prev ? { ...prev, url: newUrl } : null);
-          } else {
-            console.error("Failed to generate viewer URL");
           }
         } catch (e) {
           console.error(e);
@@ -369,49 +368,41 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                    <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}</h2>
                    <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{playingMedia.type}</span>
                  </div>
-                 {playingMedia.url ? (
-                   isExtractingServer ? (
-                      <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                        Loading new server stream...
-                      </div>
-                   ) : (
-                      <div id="media-player-container" style={{ width: '100%', flex: 1, minHeight: '500px', background: '#000', position: 'relative' }}>
-                        {playingMedia.url.includes('netoda.tech/watch') ? (
-                          <>
-                            <iframe
-                              src={playingMedia.url}
-                              width="100%"
-                              height="100%"
-                              allowFullScreen
-                              style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
-                            />
-                            {!isOwner && (
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '15%', background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Host controls the playback" />
-                            )}
-                          </>
-                        ) : (
-                          <>
-                            {/* @ts-ignore react-player types issue */}
-                            <ReactPlayer
-                              url={playingMedia.url}
-                              width="100%"
-                              height="100%"
-                              controls={isOwner}
-                              playing
-                              style={{ position: 'absolute', top: 0, left: 0 }}
-                            />
-                            {!isOwner && (
-                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '15%', background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Host controls the playback" />
-                            )}
-                          </>
-                        )}
-                      </div>
-                   )
-                 ) : (
-                   <div style={{ padding: '2rem', textAlign: 'center', color: 'white' }}>
-                     Failed to load media URL.
-                   </div>
-                 )}
+                 {isExtractingServer ? (
+                     <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                       Loading new server stream...
+                     </div>
+                  ) : playingMedia.url ? (
+                     <div id="media-player-container" style={{ width: '100%', flex: 1, minHeight: '500px', background: '#000', position: 'relative' }}>
+                       {playingMedia.url.includes('netoda.tech/watch') ? (
+                         <>
+                           <iframe
+                             src={playingMedia.url}
+                             width="100%"
+                             height="100%"
+                             allowFullScreen
+                             style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
+                           />
+                         </>
+                       ) : (
+                         <>
+                           {/* @ts-ignore react-player types issue */}
+                           <ReactPlayer
+                             url={playingMedia.url}
+                             width="100%"
+                             height="100%"
+                             controls={true}
+                             playing
+                             style={{ position: 'absolute', top: 0, left: 0 }}
+                           />
+                         </>
+                       )}
+                     </div>
+                  ) : (
+                    <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      Failed to load media URL.
+                    </div>
+                  )}
                </div>
            </div>
         )}
