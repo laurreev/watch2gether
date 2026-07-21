@@ -1,3 +1,0 @@
-prevent a joiner from sharing scree, hide all the buttons related to screen sharing, like the resolution picker and share screen button for the room joiners
-there is a bug where when im already in a room but no screen is live yet, then the room owner starts streaming, it wont show to me and i had to rejoin to see the video, it does not auto-fetch, no live updates
-bug for mobile (ios: when i go full screen on a video, the video gets paused, also the same when i leave the fullscreen)

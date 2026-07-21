@@ -36,14 +36,14 @@ io.on('connection', (socket) => {
 
         socket.join(roomId);
         console.log(`User ${socket.id} joined room: ${roomId}`);
-        
+
         if (isOwner) {
             roomHosts.set(roomId, socket.id);
         }
-        
+
         const room = io.sockets.adapter.rooms.get(roomId);
         const usersInRoom = room ? Array.from(room) : [];
-        
+
         // Notify the user who just joined about existing users
         socket.emit('room-users', usersInRoom.filter(id => id !== socket.id));
 
@@ -97,17 +97,125 @@ io.on('connection', (socket) => {
 
 const PORT = process.env.PORT || 3000;
 
+const { exec } = require('child_process');
+
 // API endpoint for checking if a room exists
 app.get('/api/room/:id', (req, res) => {
     const room = io.sockets.adapter.rooms.get(req.params.id);
     res.json({ exists: room ? true : false });
 });
 
+// API endpoint for searching media via Python script
+app.get('/api/search', (req, res) => {
+    const { q, type, genre, year } = req.query;
+    const query = q || '';
+    
+    const mediaType = type || 'all';
+    
+    // Call simple.py
+    const pythonScript = path.join(__dirname, 'simple.py');
+    let command = `python "${pythonScript}" --action search --query "${query}" --type "${mediaType}"`;
+    if (genre) command += ` --genre "${genre}"`;
+    if (year) command += ` --year "${year}"`;
+    
+    const childProcess = exec(command, { maxBuffer: 1024 * 1024 * 10 }, (error, stdout, stderr) => {
+        if (error) {
+            // Ignore kill errors since we initiated it
+            if (error.signal === 'SIGTERM') return;
+            console.error(`Error executing script: ${error.message}`);
+            return res.status(500).json({ error: 'Failed to search media' });
+        }
+        
+        try {
+            const results = JSON.parse(stdout);
+            res.json({ results });
+        } catch (parseError) {
+            console.error(`Error parsing script output: ${parseError.message}`);
+            console.error(`Output was: ${stdout}`);
+            res.status(500).json({ error: 'Invalid response from search script' });
+        }
+    });
+
+    req.on('close', () => {
+        if (!res.headersSent) {
+            console.log('Client aborted request, killing python process');
+            childProcess.kill('SIGTERM');
+        }
+    });
+});
+
+// API endpoint for getting stream URL via Python script
+app.get('/api/stream', (req, res) => {
+    const { id } = req.query;
+    if (!id) {
+        return res.status(400).json({ error: 'Missing id parameter' });
+    }
+    
+    // Call simple.py for stream
+    const pythonScript = path.join(__dirname, 'simple.py');
+    const command = `python "${pythonScript}" --action stream --id "${id}"`;
+    
+    exec(command, (error, stdout, stderr) => {
+        if (error) {
+            console.error(`Error executing script: ${error.message}`);
+            return res.status(500).json({ error: 'Failed to get stream' });
+        }
+        
+        try {
+            const result = JSON.parse(stdout);
+            res.json(result);
+        } catch (parseError) {
+            console.error(`Error parsing script output: ${parseError.message}`);
+            console.error(`Output was: ${stdout}`);
+            res.status(500).json({ error: 'Invalid response from stream script' });
+        }
+    });
+});
+
+// API endpoint for getting iframe url via Python script extraction
+app.get('/api/extract', (req, res) => {
+    const { url, server } = req.query;
+    if (!url) {
+        return res.status(400).json({ error: 'Missing url parameter' });
+    }
+    
+    const pythonScript = path.join(__dirname, 'simple.py');
+    let command = `python "${pythonScript}" --action extract --url "${url}"`;
+    if (server) {
+        command += ` --server "${server}"`;
+    }
+    
+    // Set a longer timeout (30s) since Playwright needs time to load and click
+    const childProcess = exec(command, { maxBuffer: 1024 * 1024 * 10, timeout: 45000 }, (error, stdout, stderr) => {
+        if (error) {
+            if (error.signal === 'SIGTERM' || error.signal === 'SIGKILL') return;
+            console.error(`Error executing script: ${error.message}`);
+            return res.status(500).json({ error: 'Failed to extract stream' });
+        }
+        
+        try {
+            const result = JSON.parse(stdout);
+            res.json(result);
+        } catch (parseError) {
+            console.error(`Error parsing script output: ${parseError.message}`);
+            console.error(`Output was: ${stdout}`);
+            res.status(500).json({ error: 'Invalid response from extract script' });
+        }
+    });
+
+    req.on('close', () => {
+        if (!res.headersSent) {
+            console.log('Client aborted request, killing python process');
+            childProcess.kill('SIGTERM');
+        }
+    });
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
     // Serve static files from the React frontend app
     app.use(express.static(path.join(__dirname, 'frontend/dist')));
-    
+
     // API endpoint for checking if a room exists
     app.get('/api/room/:id', (req, res) => {
         const room = io.sockets.adapter.rooms.get(req.params.id);

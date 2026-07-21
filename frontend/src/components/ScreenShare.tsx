@@ -1,5 +1,8 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useWebRTC, type Resolution } from '../hooks/useWebRTC.ts';
+import MediaSelector from './MediaSelector.tsx';
+import ReactPlayerModule from 'react-player';
+const ReactPlayer = ReactPlayerModule as any;
 
 interface ScreenShareProps {
   roomId: string;
@@ -182,6 +185,38 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
   const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount } = useWebRTC(roomId, isOwner, onLeave);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
+  const [showMediaSelector, setShowMediaSelector] = useState(false);
+  const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string} | null>(null);
+  const [activeServer, setActiveServer] = useState('1');
+  const [isExtractingServer, setIsExtractingServer] = useState(false);
+
+  const handlePlayMedia = (item: any) => {
+    setPlayingMedia(item);
+    setActiveServer('1'); // Reset to default when new media plays
+    setShowMediaSelector(false);
+  };
+
+  const handleStopMedia = () => {
+    setPlayingMedia(null);
+  };
+
+  const handleServerChange = async (serverStr: string) => {
+    setActiveServer(serverStr);
+    if (!playingMedia || !playingMedia.originalUrl) return;
+    
+    setIsExtractingServer(true);
+    try {
+      const { getVaporpicIframe } = await import('../services/vaporpic.ts');
+      const newUrl = await getVaporpicIframe(playingMedia.originalUrl, serverStr);
+      if (newUrl) {
+         setPlayingMedia({ ...playingMedia, url: newUrl });
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+       setIsExtractingServer(false);
+    }
+  };
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(roomId);
@@ -223,12 +258,32 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                 <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
                   Start Sharing
                 </button>
+                <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector(true)}>
+                  Find something to watch
+                </button>
               </div>
             ) : (
               <button className="btn btn-danger" onClick={stopScreenShare}>
                 Stop Sharing
               </button>
             )
+          )}
+          {isOwner && playingMedia && !localStream && (
+             <div style={{ display: 'flex', gap: '0.5rem' }}>
+               <select 
+                 className="input-field select-field"
+                 value={activeServer}
+                 onChange={(e) => handleServerChange(e.target.value)}
+                 disabled={isExtractingServer}
+               >
+                 <option value="1">Server 1</option>
+                 <option value="2">Server 2</option>
+                 <option value="3">Server 3</option>
+               </select>
+               <button className="btn btn-danger" onClick={handleStopMedia}>
+                 Stop Playing
+               </button>
+             </div>
           )}
           <button className="btn btn-leave" onClick={onLeave}>
             Leave
@@ -251,13 +306,64 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
           <VideoStream key={peerId} stream={stream} label={`Viewer: ${peerId.substring(0, 5)}`} isLocal={false} />
         ))}
 
-        {!localStream && remoteStreams.size === 0 && (
+        {!localStream && remoteStreams.size === 0 && !playingMedia && (
            <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', minHeight: '400px', borderRadius: '1rem', flexDirection: 'column', gap: '1rem' }}>
                <h3 style={{ color: 'var(--text-muted)' }}>Waiting for someone to share their screen...</h3>
                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Share the Room ID with your friends so they can join.</p>
            </div>
         )}
+
+        {playingMedia && !localStream && (
+           <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', minHeight: '600px', borderRadius: '1rem', flexDirection: 'column', gap: '1rem', background: '#000', border: '1px solid var(--border)', overflow: 'hidden' }}>
+               <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
+                 <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
+                   <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}</h2>
+                   <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{playingMedia.type}</span>
+                 </div>
+                 {playingMedia.url ? (
+                   isExtractingServer ? (
+                      <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        Loading new server stream...
+                      </div>
+                   ) : (
+                      <div style={{ width: '100%', flex: 1, minHeight: '500px', background: '#000', position: 'relative' }}>
+                        {playingMedia.url.includes('netoda.tech/watch') ? (
+                          <iframe
+                            src={playingMedia.url}
+                            width="100%"
+                            height="100%"
+                            allowFullScreen
+                            style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
+                          />
+                        ) : (
+                          /* @ts-ignore react-player types issue */
+                          <ReactPlayer
+                            url={playingMedia.url}
+                            width="100%"
+                            height="100%"
+                            controls
+                            playing
+                            style={{ position: 'absolute', top: 0, left: 0 }}
+                          />
+                        )}
+                      </div>
+                   )
+                 ) : (
+                   <div style={{ padding: '2rem', textAlign: 'center', color: 'white' }}>
+                     Failed to load media URL.
+                   </div>
+                 )}
+               </div>
+           </div>
+        )}
       </div>
+
+      {showMediaSelector && (
+        <MediaSelector 
+          onPlay={handlePlayMedia} 
+          onClose={() => setShowMediaSelector(false)} 
+        />
+      )}
     </main>
   );
 };
