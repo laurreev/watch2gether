@@ -182,7 +182,7 @@ const VideoStream: React.FC<{ stream: MediaStream | null; label: string; isLocal
 };
 
 const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount } = useWebRTC(roomId, isOwner, onLeave);
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket } = useWebRTC(roomId, isOwner, onLeave);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
@@ -194,15 +194,25 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
     setPlayingMedia(item);
     setActiveServer('1'); // Reset to default when new media plays
     setShowMediaSelector(false);
+    if (isOwner && socket) {
+      socket.emit('play-media', { roomId, media: { ...item, serverStr: '1' } });
+    }
   };
 
   const handleStopMedia = () => {
     setPlayingMedia(null);
+    if (isOwner && socket) {
+      socket.emit('stop-media', roomId);
+    }
   };
 
   const handleServerChange = async (serverStr: string) => {
     setActiveServer(serverStr);
     if (!playingMedia || !playingMedia.originalUrl) return;
+    
+    if (isOwner && socket) {
+      socket.emit('play-media', { roomId, media: { ...playingMedia, serverStr } });
+    }
     
     setIsExtractingServer(true);
     try {
@@ -217,6 +227,42 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
        setIsExtractingServer(false);
     }
   };
+
+  // Viewer socket listener for synchronized media
+  useEffect(() => {
+    if (!socket || isOwner) return;
+
+    const onPlayMedia = async (media: any) => {
+      setPlayingMedia(media);
+      setActiveServer(media.serverStr || '1');
+      if (media.originalUrl) {
+        setIsExtractingServer(true);
+        try {
+          const { getVaporpicIframe } = await import('../services/vaporpic.ts');
+          const newUrl = await getVaporpicIframe(media.originalUrl, media.serverStr || '1');
+          if (newUrl) {
+            setPlayingMedia((prev: any) => prev ? { ...prev, url: newUrl } : null);
+          }
+        } catch (e) {
+          console.error(e);
+        } finally {
+          setIsExtractingServer(false);
+        }
+      }
+    };
+
+    const onStopMedia = () => {
+      setPlayingMedia(null);
+    };
+
+    socket.on('play-media', onPlayMedia);
+    socket.on('stop-media', onStopMedia);
+
+    return () => {
+      socket.off('play-media', onPlayMedia);
+      socket.off('stop-media', onStopMedia);
+    };
+  }, [socket, isOwner]);
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(roomId);
@@ -268,7 +314,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
               </button>
             )
           )}
-          {isOwner && playingMedia && !localStream && (
+          {isOwner && playingMedia && (
              <div style={{ display: 'flex', gap: '0.5rem' }}>
                <select 
                  className="input-field select-field"
@@ -313,7 +359,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
            </div>
         )}
 
-        {playingMedia && !localStream && (
+        {playingMedia && (
            <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', minHeight: '600px', borderRadius: '1rem', flexDirection: 'column', gap: '1rem', background: '#000', border: '1px solid var(--border)', overflow: 'hidden' }}>
                <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
                  <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
@@ -326,25 +372,51 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                         Loading new server stream...
                       </div>
                    ) : (
-                      <div style={{ width: '100%', flex: 1, minHeight: '500px', background: '#000', position: 'relative' }}>
+                      <div id="media-player-container" style={{ width: '100%', flex: 1, minHeight: '500px', background: '#000', position: 'relative' }}>
                         {playingMedia.url.includes('netoda.tech/watch') ? (
-                          <iframe
-                            src={playingMedia.url}
-                            width="100%"
-                            height="100%"
-                            allowFullScreen
-                            style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
-                          />
+                          <>
+                            <iframe
+                              src={playingMedia.url}
+                              width="100%"
+                              height="100%"
+                              allowFullScreen
+                              style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
+                            />
+                            {!isOwner && (
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Only the host can control playback">
+                                    <button 
+                                      className="btn btn-primary" 
+                                      style={{ position: 'absolute', top: '1rem', right: '1rem', opacity: 0.7, cursor: 'pointer', pointerEvents: 'auto' }}
+                                      onClick={() => document.getElementById('media-player-container')?.requestFullscreen()}
+                                    >
+                                      ⛶ Fullscreen
+                                    </button>
+                                </div>
+                            )}
+                          </>
                         ) : (
-                          /* @ts-ignore react-player types issue */
-                          <ReactPlayer
-                            url={playingMedia.url}
-                            width="100%"
-                            height="100%"
-                            controls
-                            playing
-                            style={{ position: 'absolute', top: 0, left: 0 }}
-                          />
+                          <>
+                            {/* @ts-ignore react-player types issue */}
+                            <ReactPlayer
+                              url={playingMedia.url}
+                              width="100%"
+                              height="100%"
+                              controls={isOwner}
+                              playing
+                              style={{ position: 'absolute', top: 0, left: 0 }}
+                            />
+                            {!isOwner && (
+                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Only the host can control playback">
+                                    <button 
+                                      className="btn btn-primary" 
+                                      style={{ position: 'absolute', top: '1rem', right: '1rem', opacity: 0.7, cursor: 'pointer', pointerEvents: 'auto' }}
+                                      onClick={() => document.getElementById('media-player-container')?.requestFullscreen()}
+                                    >
+                                      ⛶ Fullscreen
+                                    </button>
+                                </div>
+                            )}
+                          </>
                         )}
                       </div>
                    )

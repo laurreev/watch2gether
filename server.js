@@ -19,6 +19,7 @@ const io = new Server(server, {
 });
 
 const roomHosts = new Map();
+const roomMedia = new Map(); // Store playing media per room
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
@@ -50,6 +51,11 @@ io.on('connection', (socket) => {
         // Notify others in the room that a new user joined
         // We send the socket.id so the existing users know who to initiate a connection with
         socket.to(roomId).emit('user-joined', socket.id);
+        
+        // If there's media playing, send it to the new user
+        if (roomMedia.has(roomId)) {
+            socket.emit('play-media', roomMedia.get(roomId));
+        }
     });
 
     // WebRTC Signaling: Relay Offer
@@ -73,6 +79,18 @@ io.on('connection', (socket) => {
     // Handle stream stop
     socket.on('stop-sharing', (roomId) => {
         socket.to(roomId).emit('stop-sharing');
+    });
+
+    // Handle media playback sync
+    socket.on('play-media', (data) => {
+        // data: { roomId, media: { title, type, originalUrl, serverStr } }
+        roomMedia.set(data.roomId, data.media);
+        socket.to(data.roomId).emit('play-media', data.media);
+    });
+
+    socket.on('stop-media', (roomId) => {
+        roomMedia.delete(roomId);
+        socket.to(roomId).emit('stop-media');
     });
 
     // Handle Disconnects

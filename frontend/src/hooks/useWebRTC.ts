@@ -250,5 +250,5 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
     }
   };
 
-  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount };
+  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket: socketRef.current };
 };
