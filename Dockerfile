@@ -32,6 +32,7 @@ RUN cd frontend && npm run build
 
 # Expose port (Render sets process.env.PORT automatically)
 ENV PORT=3000
+ENV NODE_ENV=production
 EXPOSE 3000
 
 # Start server
