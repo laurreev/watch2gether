@@ -383,15 +383,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                               style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
                             />
                             {!isOwner && (
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Only the host can control playback">
-                                    <button 
-                                      className="btn btn-primary" 
-                                      style={{ position: 'absolute', top: '1rem', right: '1rem', opacity: 0.7, cursor: 'pointer', pointerEvents: 'auto' }}
-                                      onClick={() => document.getElementById('media-player-container')?.requestFullscreen()}
-                                    >
-                                      ⛶ Fullscreen
-                                    </button>
-                                </div>
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '15%', background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Host controls the playback" />
                             )}
                           </>
                         ) : (
@@ -406,15 +398,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                               style={{ position: 'absolute', top: 0, left: 0 }}
                             />
                             {!isOwner && (
-                                <div style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Only the host can control playback">
-                                    <button 
-                                      className="btn btn-primary" 
-                                      style={{ position: 'absolute', top: '1rem', right: '1rem', opacity: 0.7, cursor: 'pointer', pointerEvents: 'auto' }}
-                                      onClick={() => document.getElementById('media-player-container')?.requestFullscreen()}
-                                    >
-                                      ⛶ Fullscreen
-                                    </button>
-                                </div>
+                                <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '15%', background: 'transparent', zIndex: 10, cursor: 'not-allowed' }} title="Host controls the playback" />
                             )}
                           </>
                         )}
