@@ -62,7 +62,12 @@ export const getVaporpicIframe = async (url: string, server?: string): Promise<s
   try {
     let loc = 'US';
     try {
-      const traceRes = await fetch('https://1.1.1.1/cdn-cgi/trace');
+      // Fetch from fmoviess.org first to guarantee the same Cloudflare Zone
+      let traceRes = await fetch('https://fmoviess.org/cdn-cgi/trace').catch(() => null);
+      if (!traceRes || !traceRes.ok) {
+          traceRes = await fetch('https://1.1.1.1/cdn-cgi/trace');
+      }
+      
       const traceText = await traceRes.text();
       for (const line of traceText.split('\n')) {
         if (line.startsWith('loc=')) {
@@ -70,8 +75,9 @@ export const getVaporpicIframe = async (url: string, server?: string): Promise<s
           break;
         }
       }
+      console.log(`Successfully fetched client Cloudflare loc: ${loc}`);
     } catch (e) {
-      console.warn('Could not fetch client loc', e);
+      console.warn('Could not fetch client loc, falling back to US', e);
     }
 
     let reqUrl = `/api/extract?url=${encodeURIComponent(url)}&loc=${loc}`;
