@@ -15,6 +15,10 @@ RUN cd frontend && npm install
 # Copy the rest of the application
 COPY . .
 
+# Pull the API key from Render's dashboard into the build phase
+ARG VITE_TMDB_API_KEY
+ENV VITE_TMDB_API_KEY=$VITE_TMDB_API_KEY
+
 # Build the frontend (Vite will inject VITE_TMDB_API_KEY if present in environment)
 RUN cd frontend && npm run build
 
