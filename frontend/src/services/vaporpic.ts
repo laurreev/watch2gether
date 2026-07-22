@@ -16,7 +16,7 @@ export interface VaporpicMediaItem {
   season?: number;
 }
 
-export const searchVaporpic = async (query: string, type?: string, genre?: string, year?: string, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
+export const searchVaporpic = async (query: string, type?: string, _genre?: string, _year?: string, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
   try {
     if (!TMDB_API_KEY) {
       console.error("Missing TMDB API Key. Please add VITE_TMDB_API_KEY to your .env file.");
@@ -103,7 +103,7 @@ export const getEpisodesForSeason = async (tmdbId: string, seasonNumber: number)
     }
 }
 
-export const getEpisodes = async (tmdbId: string): Promise<number> => {
+export const getEpisodes = async (_tmdbId: string): Promise<number> => {
   // Keeping this for backward compatibility if needed, but getTvSeasons is better
   return 1;
 };
