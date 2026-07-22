@@ -17,11 +17,12 @@ const resolutionSettings: Record<Resolution, any> = {
   'max': { width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 144 } },
 };
 
-export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHostLeft?: () => void) => {
+export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomConfig?: { isPublic: boolean, password?: string }, onHostLeft?: () => void) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
   const socketRef = useRef<Socket | null>(null);
+  const [socket, setSocket] = useState<Socket | null>(null);
   const peersRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const usersInRoomRef = useRef<Set<string>>(new Set());
   const [userCount, setUserCount] = useState(0);
@@ -33,10 +34,16 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
     // Connect to signaling server
     const socketUrl = import.meta.env.PROD ? window.location.origin : 'http://localhost:3000';
     socketRef.current = io(socketUrl);
+    setSocket(socketRef.current);
 
     socketRef.current.on('connect', () => {
       console.log('Connected to signaling server');
-      socketRef.current?.emit('join-room', { roomId, isOwner });
+      socketRef.current?.emit('join-room', { 
+        roomId, 
+        isOwner, 
+        isPublic: roomConfig?.isPublic ?? true,
+        password: roomConfig?.password ?? ''
+      });
     });
 
     socketRef.current.on('room-users', (users: string[]) => {
@@ -250,5 +257,5 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, onHos
     }
   };
 
-  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket: socketRef.current };
+  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket };
 };

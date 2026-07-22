@@ -67,10 +67,9 @@ body {
   letter-spacing: -0.05em;
 }
 
-/* Join screen */
+/* Join screen / Landing */
 .join-container {
   display: flex;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
   flex: 1;
@@ -78,13 +77,68 @@ body {
   animation: fadeIn 0.5s ease-out;
 }
 
+.landing-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 2rem;
+  width: 100%;
+  max-width: 1100px;
+}
+
+@media (max-width: 768px) {
+  .landing-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .hide-on-mobile {
+    display: none !important;
+  }
+}
+
 .join-card {
   padding: 3rem;
   border-radius: 1.5rem;
-  width: 100%;
-  max-width: 480px;
   text-align: center;
   box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+}
+
+.public-rooms-card {
+  padding: 2rem;
+  border-radius: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  max-height: 600px;
+  overflow-y: auto;
+}
+
+.public-room-item {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border);
+  padding: 1rem;
+  border-radius: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: all 0.2s;
+  cursor: pointer;
+}
+
+.public-room-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+  transform: translateY(-2px);
+}
+
+.public-room-info h3 {
+  margin: 0 0 0.25rem 0;
+  font-size: 1.1rem;
+}
+
+.public-room-info p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-muted);
 }
 
 .join-title {
@@ -251,10 +305,39 @@ body {
 .video-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 1.5rem;
+  gap: 1rem;
   flex: 1;
-  align-content: center;
-  justify-content: center;
+  min-height: 0;
+}
+
+.room-content-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: 1rem;
+  overflow: hidden;
+}
+
+@media (min-width: 900px) {
+  .room-content-wrapper {
+    flex-direction: row;
+  }
+}
+
+.chat-panel {
+  width: 100%;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-radius: 1rem;
+  overflow: hidden;
+  max-height: calc(100vh - 100px);
+}
+
+@media (min-width: 900px) {
+  .chat-panel {
+    width: 300px;
+  }
 }
 
 .video-wrapper {

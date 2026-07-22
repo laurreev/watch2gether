@@ -8,6 +8,8 @@ interface ScreenShareProps {
   roomId: string;
   isOwner: boolean;
   onLeave: () => void;
+  onHostMigrate: () => void;
+  roomConfig?: { isPublic: boolean; password?: string };
 }
 
 // Helper component to render a media stream
@@ -181,14 +183,58 @@ const VideoStream: React.FC<{ stream: MediaStream | null; label: string; isLocal
   );
 };
 
-const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket } = useWebRTC(roomId, isOwner, onLeave);
+const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onHostMigrate, roomConfig }) => {
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket } = useWebRTC(roomId, isOwner, roomConfig, onLeave);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
   const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string, episode?: number, season?: number} | null>(null);
   const [activeServer, setActiveServer] = useState('1');
   const [isExtractingServer, setIsExtractingServer] = useState(false);
+
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [chatMessages, setChatMessages] = useState<{username: string, text: string, timestamp: number}[]>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [showCopyPrompt, setShowCopyPrompt] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  useEffect(() => {
+    if (!socket) return;
+    
+    const handleChat = (msg: any) => setChatMessages(prev => [...prev, msg]);
+    const handleMigrate = () => {
+      alert("The previous Host disconnected. You have been promoted to Host!");
+      onHostMigrate();
+    };
+
+    socket.on('chat-message', handleChat);
+    socket.on('host-migrated', handleMigrate);
+
+    return () => {
+       socket.off('chat-message', handleChat);
+       socket.off('host-migrated', handleMigrate);
+    };
+  }, [socket, onHostMigrate]);
+
+  const sendChatMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim() || !socket) return;
+    
+    const msg = {
+       roomId,
+       username: `User-${socket.id?.substring(0, 4) || 'Guest'}`,
+       text: chatInput.trim(),
+       timestamp: Date.now()
+    };
+    
+    // We emit to server, and the server broadcasts to all (including us)
+    socket.emit('chat-message', msg);
+    setChatInput('');
+  };
   
   const [playerSeasons, setPlayerSeasons] = useState<any[]>([]);
   const [playerEpisodes, setPlayerEpisodes] = useState<any[]>([]);
@@ -307,97 +353,116 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(roomId);
-    alert('Room ID copied to clipboard!');
+    setShowCopyPrompt(true);
+    setTimeout(() => setShowCopyPrompt(false), 2000);
   };
 
   return (
-    <main className="room-container">
-      <div className="room-header glass">
-        <div className="room-info">
-          <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Room:</h2>
-          <div className="room-id-badge" onClick={handleCopyLink} title="Click to copy">
-             {roomId}
+    <main className="room-container" style={{ padding: isTheaterMode ? '0' : '1rem', gap: isTheaterMode ? '0' : '1rem', background: isTheaterMode ? '#000' : '' }}>
+      {!isTheaterMode && (
+        <div className="room-header glass" style={{ marginBottom: '1rem' }}>
+          <div className="room-info">
+            <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Room:</h2>
+            <div className="room-id-badge" onClick={handleCopyLink} title="Click to copy" style={{ position: 'relative' }}>
+               {roomId}
+               {showCopyPrompt && <div style={{ position: 'absolute', top: '-2rem', left: '50%', transform: 'translateX(-50%)', background: 'rgba(34, 197, 94, 0.9)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.8rem', whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10 }}>Copied!</div>}
+            </div>
+            <div className="viewer-badge">
+              <span style={{ width: 8, height: 8, borderRadius: '50%', background: userCount > 0 ? '#22c55e' : 'var(--text-muted)' }}></span>
+              {userCount} Viewer{userCount !== 1 ? 's' : ''}
+            </div>
           </div>
-          <div className="viewer-badge">
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: userCount > 0 ? '#22c55e' : 'var(--text-muted)' }}></span>
-            {userCount} Viewer{userCount !== 1 ? 's' : ''}
+          
+          <div className="room-controls">
+            {isOwner && (
+              !localStream ? (
+                <div className="share-controls">
+                  <label className="cursor-toggle">
+                    <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
+                    Show Cursor
+                  </label>
+                  <select 
+                    className="input-field select-field" 
+                    value={resolution} 
+                    onChange={(e) => setResolution(e.target.value as Resolution)}
+                  >
+                    <option value="720p">720p</option>
+                    <option value="1080p">1080p</option>
+                    <option value="1440p">1440p</option>
+                    <option value="max">Max Quality (1440p)</option>
+                  </select>
+                  <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
+                    Start Sharing
+                  </button>
+                  <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector(true)}>
+                    Find something to watch
+                  </button>
+                </div>
+              ) : (
+                <button className="btn btn-danger" onClick={stopScreenShare}>
+                  Stop Sharing
+                </button>
+              )
+            )}
+            {isOwner && playingMedia && (
+               <div style={{ display: 'flex', gap: '0.5rem' }}>
+                 <select 
+                   className="input-field select-field"
+                   value={activeServer}
+                   onChange={(e) => handleServerChange(e.target.value)}
+                   disabled={isExtractingServer}
+                 >
+                    <option value="1">Vidsrc ME</option>
+                    <option value="2">2Embed</option>
+                    <option value="3">Multiembed</option>
+                    <option value="4">Vidlink (Anime/HD)</option>
+                 </select>
+                 <button className="btn btn-danger" onClick={handleStopMedia}>
+                   Stop Playing
+                 </button>
+               </div>
+            )}
+            <button className="btn hide-on-mobile" style={{ background: 'var(--primary)' }} onClick={() => setIsTheaterMode(true)}>
+              🎭 Theater Mode
+            </button>
+            <a href={
+               (() => {
+                 const ua = navigator.userAgent.toLowerCase();
+                 if (ua.includes('edg/')) return 'https://microsoftedge.microsoft.com/addons/detail/ublock-origin/odfafepnkmbhccpbejgmiehpchacaeak';
+                 if (ua.includes('chrome') && !ua.includes('edg/')) return 'https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh?utm_source=ext_app_menu';
+                 if (ua.includes('firefox')) return 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/';
+                 if (ua.includes('safari') && !ua.includes('chrome') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('mac os')) return 'https://apps.apple.com/us/app/ublock-origin-lite/id6745342698';
+                 return 'https://ublockorigin.com/';
+               })()
+            } target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#8b0000', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none' }}>
+              <span style={{ fontSize: '1.2rem' }}>🛡️</span> Install AdBlock
+            </a>
+            <button className="btn btn-leave" onClick={onLeave}>
+              Leave
+            </button>
           </div>
         </div>
-        
-        <div className="room-controls">
-          {isOwner && (
-            !localStream ? (
-              <div className="share-controls">
-                <label className="cursor-toggle">
-                  <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
-                  Show Cursor
-                </label>
-                <select 
-                  className="input-field select-field" 
-                  value={resolution} 
-                  onChange={(e) => setResolution(e.target.value as Resolution)}
-                >
-                  <option value="720p">720p</option>
-                  <option value="1080p">1080p</option>
-                  <option value="1440p">1440p</option>
-                  <option value="max">Max Quality (1440p)</option>
-                </select>
-                <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
-                  Start Sharing
-                </button>
-                <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector(true)}>
-                  Find something to watch
-                </button>
-              </div>
-            ) : (
-              <button className="btn btn-danger" onClick={stopScreenShare}>
-                Stop Sharing
-              </button>
-            )
-          )}
-          {isOwner && playingMedia && (
-             <div style={{ display: 'flex', gap: '0.5rem' }}>
-               <select 
-                 className="input-field select-field"
-                 value={activeServer}
-                 onChange={(e) => handleServerChange(e.target.value)}
-                 disabled={isExtractingServer}
-               >
-                  <option value="1">Vidsrc ME</option>
-                  <option value="2">2Embed</option>
-                  <option value="3">Multiembed</option>
-                  <option value="4">Vidlink (Anime/HD)</option>
-               </select>
-               <button className="btn btn-danger" onClick={handleStopMedia}>
-                 Stop Playing
-               </button>
-             </div>
-          )}
-          <a href={
-             (() => {
-               const ua = navigator.userAgent.toLowerCase();
-               if (ua.includes('edg/')) return 'https://microsoftedge.microsoft.com/addons/detail/ublock-origin/odfafepnkmbhccpbejgmiehpchacaeak';
-               if (ua.includes('chrome') && !ua.includes('edg/')) return 'https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh?utm_source=ext_app_menu';
-               if (ua.includes('firefox')) return 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/';
-               if (ua.includes('safari') && !ua.includes('chrome') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('mac os')) return 'https://apps.apple.com/us/app/ublock-origin-lite/id6745342698';
-               return 'https://ublockorigin.com/';
-             })()
-          } target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#8b0000', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none' }}>
-            <span style={{ fontSize: '1.2rem' }}>🛡️</span> Install AdBlock
-          </a>
-          <button className="btn btn-leave" onClick={onLeave}>
-            Leave
-          </button>
-        </div>
-      </div>
+      )}
 
-      {error && (
-        <div className="glass" style={{ padding: '1rem', color: 'var(--danger)', borderRadius: '0.5rem', textAlign: 'center' }}>
+      {isTheaterMode && (
+         <button 
+           className="btn btn-primary" 
+           onClick={() => setIsTheaterMode(false)}
+           style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 1000, boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}
+         >
+           Exit Theater Mode
+         </button>
+      )}
+
+      {error && !isTheaterMode && (
+        <div className="glass" style={{ padding: '1rem', color: 'var(--danger)', borderRadius: '0.5rem', textAlign: 'center', marginBottom: '1rem' }}>
           {error}
         </div>
       )}
 
-      <div className="video-grid">
+      <div className="room-content-wrapper">
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', overflowY: 'auto', paddingRight: isTheaterMode ? '0' : '0.5rem' }}>
+          <div className="video-grid" style={{ marginBottom: isTheaterMode ? '0' : '1rem' }}>
         {localStream && (
           <VideoStream stream={localStream} label="You (Sharing)" isLocal={true} />
         )}
@@ -414,18 +479,22 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
         )}
 
         {playingMedia && (
-           <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', minHeight: '600px', borderRadius: '1rem', flexDirection: 'column', gap: '1rem', background: '#000', border: '1px solid var(--border)', overflow: 'hidden' }}>
+           <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', order: isTheaterMode ? -1 : 0, minHeight: isTheaterMode ? '100vh' : '600px', borderRadius: isTheaterMode ? '0' : '1rem', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', background: '#000', border: isTheaterMode ? 'none' : '1px solid var(--border)', overflow: 'hidden' }}>
                 <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
-                 <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
-                   <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}{playingMedia.season ? ` - Season ${playingMedia.season}` : ''}{playingMedia.episode ? ` (Episode ${playingMedia.episode})` : ''}</h2>
-                   <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{playingMedia.type}</span>
-                 </div>
+                 {!isTheaterMode && (
+                   <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
+                     <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}{playingMedia.season ? ` - Season ${playingMedia.season}` : ''}{playingMedia.episode ? ` (Episode ${playingMedia.episode})` : ''}</h2>
+                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                       <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{playingMedia.type}</span>
+                     </div>
+                   </div>
+                 )}
                  {isExtractingServer ? (
                      <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                        Loading new server stream...
                      </div>
                   ) : playingMedia.url ? (
-                     <div id="media-player-container" style={{ width: '100%', flex: 1, minHeight: '500px', background: '#000', position: 'relative' }}>
+                     <div id="media-player-container" style={{ width: '100%', flex: 1, minHeight: isTheaterMode ? '100vh' : '500px', background: '#000', position: 'relative' }}>
                        {playingMedia.url.includes('.mp4') || playingMedia.url.includes('.m3u8') ? (
                          <>
                            {/* @ts-ignore react-player types issue */}
@@ -445,8 +514,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                              width="100%"
                              height="100%"
                              allowFullScreen
-                             allow="fullscreen"
-                             style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
+                             style={{ position: 'absolute', top: 0, left: 0, border: 'none', zIndex: 1 }}
                            />
                          </>
                        )}
@@ -457,7 +525,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                     </div>
                   )}
 
-                  {playerSeasons.length > 0 && (
+                  {!isTheaterMode && playerSeasons.length > 0 && (
                     <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.3)', borderTop: '1px solid var(--border)' }}>
                        <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
                           <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem' }}>Episodes</h3>
@@ -510,6 +578,36 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                   )}
                </div>
            </div>
+        )}
+        </div>
+      </div>
+
+      {!isTheaterMode && (
+          <div className="chat-panel glass">
+            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>
+               Live Chat
+            </div>
+            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '0.5rem' }}>
+                   <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginBottom: '0.2rem' }}>{msg.username}</div>
+                   <div style={{ fontSize: '0.9rem', wordBreak: 'break-word' }}>{msg.text}</div>
+                </div>
+              ))}
+              <div ref={chatEndRef} />
+            </div>
+             <form onSubmit={sendChatMessage} style={{ padding: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  value={chatInput} 
+                  onChange={e => setChatInput(e.target.value)}
+                  className="input-field" 
+                  placeholder="Type a message..." 
+                  style={{ flex: 1, padding: '0.5rem', minWidth: 0 }} 
+                />
+                <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', flexShrink: 0, width: 'auto' }}>Send</button>
+             </form>
+          </div>
         )}
       </div>
 

@@ -20,11 +20,12 @@ Instead of forcing all users to individually request the media stream (which cou
 
 Watch2gether offloads all scraping and database overhead by utilizing **The Movie Database (TMDB)** as the source of truth.
 
-### The Search Workflow
+### The Search Workflow & Infinite Scrolling
 1. When a user types a query, `vaporpic.ts` dynamically hits `https://api.themoviedb.org/3/search/multi` (or specific movie/tv endpoints).
-2. If the user clears the search bar on the **All** or **Movie/TV** tabs, it smartly falls back to `https://api.themoviedb.org/3/trending/all/day` to provide immediate recommendations.
-3. If the user clears the search bar on the **Anime** or **Asian** tabs, it triggers specialized `/discover/tv` queries (filtering by Japanese animation genres or Korean/Chinese/Thai languages) to surface culturally-specific trending content automatically.
-4. The results are parsed and mapped into unified `MediaItem` objects.
+2. **Infinite Scrolling:** The search and discovery tabs leverage an `onScroll` pagination engine. When the user scrolls near the bottom of the grid, a new request is fired for `page=N+1`, seamlessly merging the new results into the existing grid without reloading.
+3. If the user clears the search bar on the **All** or **Movie/TV** tabs, it smartly falls back to `https://api.themoviedb.org/3/trending/all/day` to provide immediate recommendations.
+4. If the user clears the search bar on the **Anime** or **Asian** tabs, it triggers specialized `/discover/tv` queries (filtering by Japanese animation genres or Korean/Chinese/Thai languages) to surface culturally-specific trending content automatically.
+5. The results are parsed and mapped into unified `MediaItem` objects.
 
 ### Dynamic TV Show Resolution
 Unlike movies, TV shows require deep contextual logic (Seasons and Episodes).
