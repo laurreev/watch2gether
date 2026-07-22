@@ -13,6 +13,7 @@ interface MediaItem {
   url?: string;
   originalUrl?: string;
   episode?: number;
+  season?: number;
 }
 
 // No more placeholder data, we fetch from the backend script
@@ -101,8 +102,30 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
   }, [searchQuery, activeTab, activeGenre, activeYear]);
 
   const [selectedTvShow, setSelectedTvShow] = useState<MediaItem | null>(null);
-  const [episodeCount, setEpisodeCount] = useState<number>(0);
+  const [seasons, setSeasons] = useState<any[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState<number | null>(null);
+  const [episodes, setEpisodes] = useState<any[]>([]);
   const [isLoadingEpisodes, setIsLoadingEpisodes] = useState(false);
+
+  useEffect(() => {
+    let aborted = false;
+    
+    if (selectedTvShow && selectedSeason !== null) {
+      setIsLoadingEpisodes(true);
+      import('../services/vaporpic.ts').then(({ getEpisodesForSeason }) => {
+        getEpisodesForSeason(selectedTvShow.url!, selectedSeason).then(eps => {
+          if (!aborted) {
+            setEpisodes(eps);
+            setIsLoadingEpisodes(false);
+          }
+        });
+      });
+    }
+
+    return () => {
+      aborted = true;
+    };
+  }, [selectedTvShow, selectedSeason]);
 
   const handlePlay = async (item: MediaItem) => {
     if (!item.url) {
@@ -114,12 +137,16 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
        setSelectedTvShow(item);
        setIsLoadingEpisodes(true);
        try {
-         const { getEpisodes } = await import('../services/vaporpic.ts');
-         const count = await getEpisodes(item.url);
-         setEpisodeCount(count);
+         const { getTvSeasons } = await import('../services/vaporpic.ts');
+         const fetchedSeasons = await getTvSeasons(item.url!);
+         setSeasons(fetchedSeasons);
+         if (fetchedSeasons.length > 0) {
+           setSelectedSeason(fetchedSeasons[0].season_number);
+         } else {
+           setIsLoadingEpisodes(false);
+         }
        } catch(e) {
-         setEpisodeCount(1);
-       } finally {
+         setSeasons([]);
          setIsLoadingEpisodes(false);
        }
        return;
@@ -132,12 +159,12 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
     setExtractingId(item.id);
     try {
       const { getVaporpicIframe } = await import('../services/vaporpic.ts');
-      const m3u8Url = await getVaporpicIframe(item.url!, '1', ep?.toString());
+      const m3u8Url = await getVaporpicIframe(item.url!, '1', ep?.toString(), selectedSeason || 1);
       
       if (m3u8Url) {
-        onPlay({ ...item, url: m3u8Url, originalUrl: item.url, episode: ep });
+        onPlay({ ...item, url: m3u8Url, originalUrl: item.url, episode: ep, season: selectedSeason || undefined });
       } else {
-        alert("Failed to extract video stream. Fmovies might be blocking the request.");
+        alert("Failed to get video stream.");
       }
     } catch (e) {
       console.error(e);
@@ -158,22 +185,38 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
         {selectedTvShow ? (
           <div style={{ display: 'flex', flexDirection: 'column', flex: 1, padding: '2rem', overflowY: 'auto' }}>
             <div style={{ marginBottom: '1.5rem', display: 'flex', alignItems: 'center', gap: '1rem' }}>
-              <button className="btn btn-secondary" onClick={() => setSelectedTvShow(null)}>← Back to search</button>
-              <span style={{ color: 'var(--text-muted)' }}>Select an episode:</span>
+              <button className="btn btn-secondary" onClick={() => { setSelectedTvShow(null); setSelectedSeason(null); setSeasons([]); setEpisodes([]); }}>← Back to search</button>
+              
+              {seasons.length > 0 && (
+                <select 
+                  className="input-field" 
+                  style={{ minWidth: '150px' }}
+                  value={selectedSeason || ''} 
+                  onChange={e => setSelectedSeason(Number(e.target.value))}
+                >
+                  {seasons.map(s => (
+                    <option key={s.season_number} value={s.season_number}>{s.name || `Season ${s.season_number}`}</option>
+                  ))}
+                </select>
+              )}
             </div>
             
             {isLoadingEpisodes ? (
               <div style={{ textAlign: 'center', color: 'white', padding: '3rem' }}>Loading episodes...</div>
             ) : (
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(100px, 1fr))', gap: '1rem' }}>
-                {Array.from({ length: episodeCount }).map((_, i) => (
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: '1rem' }}>
+                {episodes.map((ep) => (
                   <button 
-                    key={i} 
+                    key={ep.episode_number} 
                     className="btn btn-primary"
-                    style={{ padding: '1rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem' }}
-                    onClick={() => playMedia(selectedTvShow, i + 1)}
+                    style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: '0.25rem', textAlign: 'left', height: '100%' }}
+                    onClick={() => playMedia(selectedTvShow, ep.episode_number)}
                   >
-                    <span>{extractingId === selectedTvShow.id ? 'Loading...' : `Ep ${i + 1}`}</span>
+                    <span style={{ fontSize: '0.85rem', color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>Ep {ep.episode_number}</span>
+                    {ep.name && !ep.name.toLowerCase().startsWith(`episode ${ep.episode_number}`) && (
+                      <span style={{ fontSize: '0.95rem', color: '#fff', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', width: '100%' }}>{ep.name}</span>
+                    )}
+                    {extractingId === selectedTvShow.id && <span style={{ fontSize: '0.75rem', color: 'rgba(255, 255, 255, 0.7)', marginTop: 'auto', paddingTop: '0.5rem' }}>Loading...</span>}
                   </button>
                 ))}
               </div>

@@ -1,3 +1,5 @@
+const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
+
 export interface VaporpicSearchResponse {
   results: VaporpicMediaItem[];
 }
@@ -11,105 +13,111 @@ export interface VaporpicMediaItem {
   url?: string;
   originalUrl?: string;
   episode?: number;
+  season?: number;
 }
 
-/**
- * Service to interact with the Vaporpic API.
- * Structured for future implementation.
- */
 export const searchVaporpic = async (query: string, type?: string, genre?: string, year?: string, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
   try {
-    let url = `/api/search?q=${encodeURIComponent(query)}&type=${type || 'all'}`;
-    if (genre) url += `&genre=${encodeURIComponent(genre)}`;
-    if (year) url += `&year=${encodeURIComponent(year)}`;
+    if (!TMDB_API_KEY) {
+      console.error("Missing TMDB API Key. Please add VITE_TMDB_API_KEY to your .env file.");
+      return { results: [] };
+    }
+
+    const searchType = type === 'movie' ? 'movie' : type === 'tvod' ? 'tv' : 'multi';
+    const encodedQuery = encodeURIComponent(query);
     
-    const response = await fetch(url, { signal });
-    
+    let url = '';
+    if (query.trim() === '') {
+      // If empty query, fetch trending
+      url = `https://api.themoviedb.org/3/trending/${searchType === 'multi' ? 'all' : searchType}/day?language=en-US&api_key=${TMDB_API_KEY}`;
+    } else {
+      url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodedQuery}&include_adult=false&language=en-US&page=1&api_key=${TMDB_API_KEY}`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'accept': 'application/json'
+      },
+      signal
+    });
+
     if (!response.ok) {
       console.error(`Error fetching search results: ${response.statusText}`);
       return { results: [] };
     }
-    
+
     const data = await response.json();
-    
-    // Check if the API returned an error string
-    if (data.error) {
-      console.warn('Vaporpic search error:', data.error);
-      return { results: [] };
-    }
-    
-    return data;
+
+    const mappedResults: VaporpicMediaItem[] = (data.results || []).map((item: any) => ({
+      id: item.id.toString(),
+      title: item.title || item.name,
+      media_type: item.media_type === 'tv' || searchType === 'tv' ? 'tvod' : 'movie',
+      poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : undefined,
+      year: item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : undefined),
+      url: item.id.toString(),
+      originalUrl: item.id.toString(),
+    }));
+
+    return { results: mappedResults };
   } catch (error) {
     console.error(`Error fetching search results:`, error);
     return { results: [] };
   }
 };
 
-export const getVaporpicStream = async (mediaId: string): Promise<string> => {
-  try {
-    const response = await fetch(`/api/stream?id=${encodeURIComponent(mediaId)}`);
-    if (!response.ok) {
-      console.error(`Error fetching stream: ${response.statusText}`);
-      return '';
-    }
-    const data = await response.json();
-    return data.url || '';
-  } catch (error) {
-    console.error('Error fetching stream:', error);
-    return '';
-  }
-};
+export interface TmdbSeason {
+  season_number: number;
+  episode_count: number;
+  name: string;
+}
 
-export const getEpisodes = async (url: string): Promise<number> => {
-  try {
-    const response = await fetch(`/api/episodes?url=${encodeURIComponent(url)}`);
-    if (!response.ok) {
-      console.error(`Error fetching episodes: ${response.statusText}`);
-      return 1;
-    }
-    const data = await response.json();
-    return data.episodes || 1;
-  } catch (error) {
-    console.error('Error fetching episodes:', error);
-    return 1;
-  }
-};
-
-export const getVaporpicIframe = async (url: string, server?: string, ep?: string): Promise<string> => {
-  try {
-    let loc = 'US';
+export const getTvSeasons = async (tmdbId: string): Promise<TmdbSeason[]> => {
     try {
-      // Fetch from fmoviess.org first to guarantee the same Cloudflare Zone
-      let traceRes = await fetch('https://fmoviess.org/cdn-cgi/trace').catch(() => null);
-      if (!traceRes || !traceRes.ok) {
-          traceRes = await fetch('https://1.1.1.1/cdn-cgi/trace');
-      }
-      
-      const traceText = await traceRes.text();
-      for (const line of traceText.split('\n')) {
-        if (line.startsWith('loc=')) {
-          loc = line.split('=')[1].trim();
-          break;
-        }
-      }
-      console.log(`Successfully fetched client Cloudflare loc: ${loc}`);
+        const response = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}?language=en-US&api_key=${TMDB_API_KEY}`, {
+            headers: { 'accept': 'application/json' }
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.seasons?.filter((s: any) => s.season_number > 0) || [];
     } catch (e) {
-      console.warn('Could not fetch client loc, falling back to US', e);
+        return [];
     }
+}
 
-    let reqUrl = `/api/extract?url=${encodeURIComponent(url)}&loc=${loc}`;
-    if (server) reqUrl += `&server=${encodeURIComponent(server)}`;
-    if (ep) reqUrl += `&ep=${encodeURIComponent(ep)}`;
-    
-    const response = await fetch(reqUrl);
-    if (!response.ok) {
-      console.error(`Error extracting video stream: ${response.statusText}`);
-      return '';
+export interface TmdbEpisode {
+  episode_number: number;
+  name: string;
+  still_path?: string;
+}
+
+export const getEpisodesForSeason = async (tmdbId: string, seasonNumber: number): Promise<TmdbEpisode[]> => {
+    try {
+        const response = await fetch(`https://api.themoviedb.org/3/tv/${tmdbId}/season/${seasonNumber}?language=en-US&api_key=${TMDB_API_KEY}`, {
+            headers: { 'accept': 'application/json' }
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return data.episodes || [];
+    } catch (e) {
+        return [];
     }
-    const data = await response.json();
-    return data.url || '';
-  } catch (error) {
-    console.error('Error extracting video stream:', error);
-    return '';
-  }
+}
+
+export const getEpisodes = async (tmdbId: string): Promise<number> => {
+  // Keeping this for backward compatibility if needed, but getTvSeasons is better
+  return 1;
+};
+
+export const getVaporpicIframe = async (url: string, server?: string, ep?: string, season?: number): Promise<string> => {
+    // URL is the TMDB ID in this new architecture
+    const tmdbId = url;
+    
+    // Check if it's a TV show (ep is passed)
+    if (ep !== undefined && ep !== null) {
+        const seasonNum = season || 1;
+        return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
+    }
+    
+    // Otherwise it's a Movie
+    return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
 };
