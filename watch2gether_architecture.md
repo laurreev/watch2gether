@@ -22,14 +22,16 @@ Watch2gether offloads all scraping and database overhead by utilizing **The Movi
 
 ### The Search Workflow
 1. When a user types a query, `vaporpic.ts` dynamically hits `https://api.themoviedb.org/3/search/multi` (or specific movie/tv endpoints).
-2. If the user clears the search bar, it smartly falls back to `https://api.themoviedb.org/3/trending/all/day` to provide immediate recommendations.
-3. The results are parsed and mapped into unified `MediaItem` objects.
+2. If the user clears the search bar on the **All** or **Movie/TV** tabs, it smartly falls back to `https://api.themoviedb.org/3/trending/all/day` to provide immediate recommendations.
+3. If the user clears the search bar on the **Anime** or **Asian** tabs, it triggers specialized `/discover/tv` queries (filtering by Japanese animation genres or Korean/Chinese/Thai languages) to surface culturally-specific trending content automatically.
+4. The results are parsed and mapped into unified `MediaItem` objects.
 
 ### Dynamic TV Show Resolution
 Unlike movies, TV shows require deep contextual logic (Seasons and Episodes).
-1. When a TV Show is selected, the frontend instantly calls `getTvSeasons()` to retrieve the array of available seasons.
+1. When a TV Show, Anime, or Asian Drama is selected, the frontend instantly calls `getTvSeasons()` to retrieve the array of available seasons.
 2. When the user changes the Season dropdown, a highly specific call to `getEpisodesForSeason(tmdbId, seasonNumber)` is made.
 3. This populates the UI with actual **Episode Titles** and thumbnails (rather than generic numbers), offering a premium browsing experience without ever touching your Node.js backend.
+4. **Binge-Watching Support**: Once a series is playing, an embedded Season/Episode picker dynamically mounts underneath the video player in `ScreenShare.tsx`. This allows the host to instantly switch to the next episode without ever reopening the search menu.
 
 ## 4. The Vidsrc Streaming Engine
 
@@ -38,10 +40,11 @@ The actual video playback leverages **Vidsrc**, a stateless video embed provider
 ### The Magic of Stateless Embeds
 Previously, the app required a heavy Python backend to reverse-engineer Cloudflare protections and generate complex AES-GCM encrypted tokens for Fmovies. 
 
-With the new architecture, generating a video stream is instant and requires **zero encryption overhead**. The frontend relies on three redundant, stateless embed networks:
+With the new architecture, generating a video stream is instant and requires **zero encryption overhead**. The frontend relies on four redundant, stateless embed networks:
 *   **Server 1 (Vidsrc ME):** `https://vidsrc.me/embed/movie?tmdb={tmdbId}`
 *   **Server 2 (2Embed):** `https://www.2embed.cc/embed/{tmdbId}`
 *   **Server 3 (Multiembed):** `https://multiembed.mov/?video_id={tmdbId}&tmdb=1`
+*   **Server 4 (Vidlink):** `https://vidlink.pro/movie/{tmdbId}` (Optimized for Anime)
 
 TV Show routing dynamically injects the season and episode parameters depending on the active server format (e.g., `&season={s}&episode={e}` for Vidsrc, or `&s={s}&e={e}` for 2Embed and Multiembed).
 

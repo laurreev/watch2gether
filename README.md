@@ -21,8 +21,10 @@ Watch2gether is a powerful, lightweight synchronized media player built for watc
 
 * **🎥 Low-Latency Sync**: P2P WebRTC connection ensures all viewers are perfectly synced with the host without server bottleneck.
 * **🌐 Universal Media Scraper**: Integrated TMDB API instantly fetches rich metadata, posters, and detailed episode lists for any movie or TV show.
+* **📺 Anime & Asian Drama Support**: Specialized discover tabs instantly pull culturally specific trending content natively.
 * **⚡ Blazing Fast**: Zero backend processing! Search and streaming resolution happens 100% on the client side without headless browsers or heavy server loads.
-* **🛡️ Redundant Streaming**: Automatically generates standard embed links across multiple independent providers (Vidsrc, 2Embed, Multiembed) to stream high-quality video instantly in native iframes.
+* **🛡️ Redundant Streaming**: Automatically generates standard embed links across four independent providers (Vidsrc, 2Embed, Multiembed, and Vidlink for Anime) to stream high-quality video instantly in native iframes.
+* **🍿 Binge-Ready Player**: An embedded Season/Episode picker mounts directly below the player, allowing instant switching without reopening search menus.
 * **🎨 Modern UI**: Built with React and styled beautifully with a glassmorphic dark-mode design.
 
 ## 🏗️ Architecture
