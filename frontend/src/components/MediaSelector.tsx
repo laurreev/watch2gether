@@ -31,6 +31,15 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
   const [results, setResults] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [extractingId, setExtractingId] = useState<string | null>(null);
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 150 && !isLoading && hasMore) {
+      setPage(prev => prev + 1);
+    }
+  };
 
   // Prevent background scrolling when modal is open
   useEffect(() => {
@@ -40,13 +49,19 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
     };
   }, []);
 
+  // Reset page when filters change
+  useEffect(() => {
+    setPage(1);
+    setHasMore(true);
+    setResults([]);
+  }, [searchQuery, activeTab, activeGenre, activeYear]);
+
   // Debounced search effect mapping vaporpic structure
   useEffect(() => {
     let aborted = false;
     const abortController = new AbortController();
     
     setIsLoading(true);
-    setResults([]);
     
     const fetchMedia = async () => {
       try {
@@ -62,7 +77,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
         const genreParam = activeGenre !== 'All' ? activeGenre.toLowerCase() : undefined;
         const yearParam = activeYear !== 'All' ? activeYear : undefined;
         
-        const response = await searchVaporpic(searchQuery, typeMapping[activeTab], genreParam, yearParam, abortController.signal);
+        const response = await searchVaporpic(searchQuery, typeMapping[activeTab], genreParam, yearParam, page, abortController.signal);
         
         // Don't update state if this effect was already cleaned up (stale request)
         if (aborted) return;
@@ -85,9 +100,11 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
                year: item.year
              };
           });
-          setResults(mappedResults);
+          setResults(prev => page === 1 ? mappedResults : [...prev, ...mappedResults]);
+          setHasMore(response.results.length >= 20);
         } else {
-          setResults([]);
+          if (page === 1) setResults([]);
+          setHasMore(false);
         }
       } catch (error: any) {
         if (error.name === 'AbortError') {
@@ -111,7 +128,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
       abortController.abort();
       clearTimeout(timeoutId);
     };
-  }, [searchQuery, activeTab, activeGenre, activeYear]);
+  }, [searchQuery, activeTab, activeGenre, activeYear, page]);
 
   const [selectedTvShow, setSelectedTvShow] = useState<MediaItem | null>(null);
   const [seasons, setSeasons] = useState<any[]>([]);
@@ -309,24 +326,31 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
               </div>
             </div>
 
-            <div className="media-grid">
+            <div className="media-grid" onScroll={handleScroll}>
               {results.length > 0 ? (
-                results.map(item => (
-                  <div key={item.id} className="media-tile" onClick={() => handlePlay(item)}>
-                    <img src={item.imageUrl} alt={item.title} className="media-tile-image" />
-                    <div className="media-tile-info">
-                      <span className="media-tile-type">
-                        {item.type}{item.year ? ` • ${item.year}` : ''}
-                      </span>
-                      <h3 className="media-tile-title">{item.title}</h3>
-                      <div className="media-tile-play-overlay">
-                        <button className="btn btn-primary play-btn">
-                          {extractingId === item.id ? 'Extracting...' : (item.type === 'Movie' ? '▶ Play' : '▶ Select')}
-                        </button>
+                <>
+                  {results.map(item => (
+                    <div key={item.id} className="media-tile" onClick={() => handlePlay(item)}>
+                      <img src={item.imageUrl} alt={item.title} className="media-tile-image" />
+                      <div className="media-tile-info">
+                        <span className="media-tile-type">
+                          {item.type}{item.year ? ` • ${item.year}` : ''}
+                        </span>
+                        <h3 className="media-tile-title">{item.title}</h3>
+                        <div className="media-tile-play-overlay">
+                          <button className="btn btn-primary play-btn">
+                            {extractingId === item.id ? 'Extracting...' : (item.type === 'Movie' ? '▶ Play' : '▶ Select')}
+                          </button>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  ))}
+                  {isLoading && hasMore && Array.from({ length: 5 }).map((_, i) => (
+                    <div key={`skeleton-${i}`} className="media-tile skeleton-tile">
+                      <div className="skeleton-image"></div>
+                    </div>
+                  ))}
+                </>
               ) : isLoading ? (
                 Array.from({ length: 10 }).map((_, i) => (
                   <div key={i} className="media-tile skeleton-tile">

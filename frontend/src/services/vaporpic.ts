@@ -39,7 +39,7 @@ const genreMap: Record<string, number[]> = {
   'western': [37],
 };
 
-export const searchVaporpic = async (query: string, type: string, genre?: string, year?: string, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
+export const searchVaporpic = async (query: string, type: string, genre?: string, year?: string, page: number = 1, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
   try {
     if (!TMDB_API_KEY) {
       console.error("Missing TMDB API Key. Please add VITE_TMDB_API_KEY to your .env file.");
@@ -78,10 +78,12 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
          url = `https://api.themoviedb.org/3/trending/${searchType === 'multi' ? 'all' : searchType}/day?language=en-US&api_key=${TMDB_API_KEY}`;
       }
     } else {
-      url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodedQuery}&include_adult=false&language=en-US&page=1&api_key=${TMDB_API_KEY}`;
+      url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodedQuery}&include_adult=false&language=en-US&api_key=${TMDB_API_KEY}`;
       if (year && searchType === 'movie') url += `&primary_release_year=${year}`;
       if (year && searchType === 'tv') url += `&first_air_date_year=${year}`;
     }
+
+    url += `&page=${page}`;
 
     const response = await fetch(url, {
       headers: {
