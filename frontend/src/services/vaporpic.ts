@@ -7,7 +7,7 @@ export interface VaporpicSearchResponse {
 export interface VaporpicMediaItem {
   id: string;
   title: string;
-  media_type: 'movie' | 'tvod' | 'anime';
+  media_type: 'movie' | 'tv' | 'anime' | 'asian' | 'tvod';
   poster_url?: string;
   year?: string;
   url?: string;
@@ -23,13 +23,19 @@ export const searchVaporpic = async (query: string, type?: string, _genre?: stri
       return { results: [] };
     }
 
-    const searchType = type === 'movie' ? 'movie' : type === 'tvod' ? 'tv' : 'multi';
+    const searchType = type === 'movie' ? 'movie' : type === 'tv' ? 'tv' : type === 'anime' ? 'tv' : type === 'asian' ? 'tv' : 'multi';
     const encodedQuery = encodeURIComponent(query);
     
     let url = '';
     if (query.trim() === '') {
-      // If empty query, fetch trending
-      url = `https://api.themoviedb.org/3/trending/${searchType === 'multi' ? 'all' : searchType}/day?language=en-US&api_key=${TMDB_API_KEY}`;
+      // If empty query, fetch trending or discover
+      if (type === 'anime') {
+         url = `https://api.themoviedb.org/3/discover/tv?with_genres=16&with_original_language=ja&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+      } else if (type === 'asian') {
+         url = `https://api.themoviedb.org/3/discover/tv?with_original_language=ko|zh|th|ja&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+      } else {
+         url = `https://api.themoviedb.org/3/trending/${searchType === 'multi' ? 'all' : searchType}/day?language=en-US&api_key=${TMDB_API_KEY}`;
+      }
     } else {
       url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodedQuery}&include_adult=false&language=en-US&page=1&api_key=${TMDB_API_KEY}`;
     }
@@ -48,15 +54,26 @@ export const searchVaporpic = async (query: string, type?: string, _genre?: stri
 
     const data = await response.json();
 
-    const mappedResults: VaporpicMediaItem[] = (data.results || []).map((item: any) => ({
-      id: item.id.toString(),
-      title: item.title || item.name,
-      media_type: item.media_type === 'tv' || searchType === 'tv' ? 'tvod' : 'movie',
-      poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : undefined,
-      year: item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : undefined),
-      url: item.id.toString(),
-      originalUrl: item.id.toString(),
-    }));
+    // Map TMDB results to our format
+    const mappedResults: VaporpicMediaItem[] = (data.results || []).map((item: any) => {
+      // For multi search, media_type comes from TMDB. For discover/search specific, we force it.
+      let mappedMediaType = item.media_type || searchType;
+      
+      // Override for our custom tabs so the UI knows how to label them
+      if (type === 'anime') mappedMediaType = 'anime';
+      if (type === 'asian') mappedMediaType = 'asian';
+      if (mappedMediaType === 'tv') mappedMediaType = 'tvod'; // Map to expected frontend type if needed, but our UI now expects 'tv', 'asian', 'anime' etc.
+      
+      return {
+        id: item.id.toString(),
+        title: item.title || item.name,
+        media_type: mappedMediaType,
+        poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : undefined,
+        year: item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : undefined),
+        url: item.id.toString(),
+        originalUrl: item.id.toString(),
+      };
+    });
 
     return { results: mappedResults };
   } catch (error) {
@@ -113,6 +130,14 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
     const tmdbId = url;
     const seasonNum = season || 1;
     
+    // Server 4: Vidlink (Anime/HD)
+    if (server === '4') {
+        if (ep !== undefined && ep !== null) {
+            return `https://vidlink.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
+        }
+        return `https://vidlink.pro/movie/${tmdbId}`;
+    }
+
     // Server 3: Multiembed
     if (server === '3') {
         if (ep !== undefined && ep !== null) {

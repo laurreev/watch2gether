@@ -8,7 +8,7 @@ import './MediaSelector.css';
 interface MediaItem {
   id: string;
   title: string;
-  type: 'Movie' | 'TV Show' | 'Anime';
+  type: 'Movie' | 'TV Show' | 'Anime' | 'Asian';
   imageUrl: string;
   url?: string;
   originalUrl?: string;
@@ -24,7 +24,7 @@ interface MediaSelectorProps {
 
 const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'All' | 'Movie' | 'TV Show' | 'Anime'>('All');
+  const [activeTab, setActiveTab] = useState<'All' | 'Movie' | 'TV Show' | 'Anime' | 'Asian'>('All');
   const [activeGenre, setActiveGenre] = useState('All');
   const [activeYear, setActiveYear] = useState('All');
   const [results, setResults] = useState<MediaItem[]>([]);
@@ -44,8 +44,9 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
         // Map UI tabs to API media types
         const typeMapping: Record<string, string> = {
           'Movie': 'movie',
-          'TV Show': 'tvod',
+          'TV Show': 'tv',
           'Anime': 'anime',
+          'Asian': 'asian',
           'All': ''
         };
         
@@ -60,9 +61,10 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
         if (response.results && response.results.length > 0) {
           // Map API results to UI state
           const mappedResults: MediaItem[] = response.results.map((item: VaporpicMediaItem) => {
-             let mappedType: 'Movie' | 'TV Show' | 'Anime' = 'Movie';
-             if (item.media_type === 'tvod') mappedType = 'TV Show';
+             let mappedType: 'Movie' | 'TV Show' | 'Anime' | 'Asian' = 'Movie';
+             if (item.media_type === 'tv' || item.media_type === 'tvod') mappedType = 'TV Show';
              if (item.media_type === 'anime') mappedType = 'Anime';
+             if (item.media_type === 'asian') mappedType = 'Asian';
              
              return {
                id: item.id,
@@ -133,7 +135,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
       return;
     }
     
-    if (item.type === 'TV Show' || item.type === 'Anime') {
+    if (item.type === 'TV Show' || item.type === 'Anime' || item.type === 'Asian') {
        setSelectedTvShow(item);
        setIsLoadingEpisodes(true);
        try {
@@ -238,7 +240,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
               
               <div className="media-filters">
                 <div className="media-tabs">
-                  {['All', 'Movie', 'TV Show', 'Anime'].map(tab => (
+                  {['All', 'Movie', 'TV Show', 'Anime', 'Asian'].map(tab => (
                     <button 
                       key={tab} 
                       className={`tab-btn ${activeTab === tab ? 'active' : ''}`}

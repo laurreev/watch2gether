@@ -189,6 +189,45 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
   const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string, episode?: number, season?: number} | null>(null);
   const [activeServer, setActiveServer] = useState('1');
   const [isExtractingServer, setIsExtractingServer] = useState(false);
+  
+  const [playerSeasons, setPlayerSeasons] = useState<any[]>([]);
+  const [playerEpisodes, setPlayerEpisodes] = useState<any[]>([]);
+  const [activePlayerSeason, setActivePlayerSeason] = useState<number | null>(null);
+
+  useEffect(() => {
+    let aborted = false;
+    if (playingMedia && (playingMedia.type === 'TV Show' || playingMedia.type === 'Anime' || playingMedia.type === 'Asian')) {
+      const tmdbId = playingMedia.originalUrl;
+      import('../services/vaporpic.ts').then(({ getTvSeasons, getEpisodesForSeason }) => {
+        getTvSeasons(tmdbId!).then(seasons => {
+          if (!aborted) {
+            setPlayerSeasons(seasons);
+            const currentSeason = playingMedia.season || 1;
+            setActivePlayerSeason(currentSeason);
+            
+            getEpisodesForSeason(tmdbId!, currentSeason).then(eps => {
+              if (!aborted) setPlayerEpisodes(eps);
+            });
+          }
+        });
+      });
+    } else {
+      setPlayerSeasons([]);
+      setPlayerEpisodes([]);
+    }
+    return () => { aborted = true; };
+  }, [playingMedia]);
+
+  const handlePlayerSeasonChange = (s: number) => {
+    setActivePlayerSeason(s);
+    if (playingMedia?.originalUrl) {
+      import('../services/vaporpic.ts').then(({ getEpisodesForSeason }) => {
+        getEpisodesForSeason(playingMedia.originalUrl!, s).then(eps => {
+          setPlayerEpisodes(eps);
+        });
+      });
+    }
+  };
 
   const handlePlayMedia = (item: any) => {
     setPlayingMedia(item);
@@ -327,6 +366,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                   <option value="1">Vidsrc ME</option>
                   <option value="2">2Embed</option>
                   <option value="3">Multiembed</option>
+                  <option value="4">Vidlink (Anime/HD)</option>
                </select>
                <button className="btn btn-danger" onClick={handleStopMedia}>
                  Stop Playing
@@ -401,6 +441,58 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                   ) : (
                     <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       Failed to load media URL.
+                    </div>
+                  )}
+
+                  {playerSeasons.length > 0 && (
+                    <div style={{ padding: '1rem', background: 'rgba(0,0,0,0.3)', borderTop: '1px solid var(--border)' }}>
+                       <div style={{ display: 'flex', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+                          <h3 style={{ margin: 0, color: 'white', fontSize: '1.1rem' }}>Episodes</h3>
+                          <select 
+                             className="input-field select-field"
+                             value={activePlayerSeason || 1}
+                             onChange={e => handlePlayerSeasonChange(Number(e.target.value))}
+                             style={{ minWidth: '150px' }}
+                          >
+                             {playerSeasons.map(s => (
+                                <option key={s.season_number} value={s.season_number}>{s.name}</option>
+                             ))}
+                          </select>
+                       </div>
+                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '1rem', maxHeight: '250px', overflowY: 'auto', paddingRight: '0.5rem' }}>
+                          {playerEpisodes.map(ep => (
+                             <div 
+                               key={ep.episode_number} 
+                               onClick={async () => {
+                                  if (!playingMedia?.originalUrl) return;
+                                  const { getVaporpicIframe } = await import('../services/vaporpic.ts');
+                                  const newUrl = await getVaporpicIframe(playingMedia.originalUrl, '1', ep.episode_number.toString(), activePlayerSeason || 1);
+                                  const newItem = { 
+                                    ...playingMedia, 
+                                    season: activePlayerSeason || 1, 
+                                    episode: ep.episode_number,
+                                    url: newUrl 
+                                  };
+                                  handlePlayMedia(newItem);
+                               }}
+                               style={{
+                                 background: playingMedia?.season === (activePlayerSeason || 1) && playingMedia?.episode === ep.episode_number ? 'var(--primary)' : 'rgba(255,255,255,0.05)',
+                                 borderRadius: '0.5rem', padding: '0.5rem', cursor: 'pointer', transition: 'all 0.2s', border: '1px solid var(--border)',
+                                 display: 'flex', flexDirection: 'column', gap: '0.5rem'
+                               }}
+                             >
+                                {ep.still_path ? (
+                                  <img src={`https://image.tmdb.org/t/p/w300${ep.still_path}`} alt={ep.name} style={{ width: '100%', borderRadius: '0.25rem', aspectRatio: '16/9', objectFit: 'cover' }} />
+                                ) : (
+                                  <div style={{ width: '100%', aspectRatio: '16/9', background: '#000', borderRadius: '0.25rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><span style={{ color: 'rgba(255,255,255,0.2)' }}>No Image</span></div>
+                                )}
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                  <span style={{ color: 'white', fontWeight: 500, fontSize: '0.9rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{ep.episode_number}. {ep.name || `Episode ${ep.episode_number}`}</span>
+                                  <span style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.8rem' }}>{ep.air_date ? ep.air_date.split('-')[0] : ''}</span>
+                                </div>
+                             </div>
+                          ))}
+                       </div>
                     </div>
                   )}
                </div>
