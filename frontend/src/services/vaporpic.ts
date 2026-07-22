@@ -189,31 +189,31 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
     // Server 4: Vidlink (Anime/HD)
     if (server === '4') {
         if (ep !== undefined && ep !== null) {
-            return `https://vidlink.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
+            return `https://vidlink.pro/tv/${tmdbId}/${seasonNum}/${ep}?autoplay=1`;
         }
-        return `https://vidlink.pro/movie/${tmdbId}`;
+        return `https://vidlink.pro/movie/${tmdbId}?autoplay=1`;
     }
 
     // Server 3: Multiembed
     if (server === '3') {
         if (ep !== undefined && ep !== null) {
-            return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${seasonNum}&e=${ep}`;
+            return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${seasonNum}&e=${ep}&autoplay=1`;
         }
-        return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
+        return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&autoplay=1`;
     }
     
     // Server 2: 2Embed
     if (server === '2') {
         if (ep !== undefined && ep !== null) {
-            return `https://www.2embed.cc/embedtv/${tmdbId}&s=${seasonNum}&e=${ep}`;
+            return `https://www.2embed.cc/embedtv/${tmdbId}&s=${seasonNum}&e=${ep}&autoplay=1`;
         }
-        return `https://www.2embed.cc/embed/${tmdbId}`;
+        return `https://www.2embed.cc/embed/${tmdbId}?autoplay=1`;
     }
     
     // Server 1 (Default): Vidsrc
     if (ep !== undefined && ep !== null) {
-        return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
+        return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}&autoplay=1`;
     }
     
-    return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
+    return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}&autoplay=1`;
 };

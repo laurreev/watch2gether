@@ -433,6 +433,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                              width="100%"
                              height="100%"
                              allowFullScreen
+                             allow="autoplay; fullscreen"
                              style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
                            />
                          </>

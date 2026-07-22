@@ -331,7 +331,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
                 <>
                   {results.map(item => (
                     <div key={item.id} className="media-tile" onClick={() => handlePlay(item)}>
-                      <img src={item.imageUrl} alt={item.title} className="media-tile-image" />
+                      <img src={item.imageUrl} alt={item.title} className="media-tile-image" loading="lazy" />
                       <div className="media-tile-info">
                         <span className="media-tile-type">
                           {item.type}{item.year ? ` • ${item.year}` : ''}
