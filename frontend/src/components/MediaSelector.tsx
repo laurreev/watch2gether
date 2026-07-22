@@ -14,6 +14,7 @@ interface MediaItem {
   originalUrl?: string;
   episode?: number;
   season?: number;
+  year?: string;
 }
 
 // No more placeholder data, we fetch from the backend script
@@ -30,6 +31,14 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
   const [results, setResults] = useState<MediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [extractingId, setExtractingId] = useState<string | null>(null);
+
+  // Prevent background scrolling when modal is open
+  useEffect(() => {
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, []);
 
   // Debounced search effect mapping vaporpic structure
   useEffect(() => {
@@ -72,7 +81,8 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
                type: mappedType,
                imageUrl: item.poster_url || 'https://via.placeholder.com/300x450/2a2d3e/ffffff?text=No+Image',
                url: item.url,
-               originalUrl: item.url
+               originalUrl: item.url,
+               year: item.year
              };
           });
           setResults(mappedResults);
@@ -305,7 +315,9 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
                   <div key={item.id} className="media-tile" onClick={() => handlePlay(item)}>
                     <img src={item.imageUrl} alt={item.title} className="media-tile-image" />
                     <div className="media-tile-info">
-                      <span className="media-tile-type">{item.type}</span>
+                      <span className="media-tile-type">
+                        {item.type}{item.year ? ` • ${item.year}` : ''}
+                      </span>
                       <h3 className="media-tile-title">{item.title}</h3>
                       <div className="media-tile-play-overlay">
                         <button className="btn btn-primary play-btn">

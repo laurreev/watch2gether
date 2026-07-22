@@ -16,7 +16,30 @@ export interface VaporpicMediaItem {
   season?: number;
 }
 
-export const searchVaporpic = async (query: string, type?: string, _genre?: string, _year?: string, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
+const genreMap: Record<string, number[]> = {
+  'action': [28, 10759],
+  'adventure': [12, 10759],
+  'animation': [16],
+  'biography': [36],
+  'comedy': [35],
+  'crime': [80],
+  'documentary': [99],
+  'drama': [18],
+  'family': [10751],
+  'fantasy': [14, 10765],
+  'history': [36],
+  'horror': [27],
+  'music': [10402],
+  'mystery': [9648],
+  'romance': [10749],
+  'sci-fi': [878, 10765],
+  'sport': [99],
+  'thriller': [53],
+  'war': [10752, 10768],
+  'western': [37],
+};
+
+export const searchVaporpic = async (query: string, type: string, genre?: string, year?: string, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
   try {
     if (!TMDB_API_KEY) {
       console.error("Missing TMDB API Key. Please add VITE_TMDB_API_KEY to your .env file.");
@@ -31,13 +54,33 @@ export const searchVaporpic = async (query: string, type?: string, _genre?: stri
       // If empty query, fetch trending or discover
       if (type === 'anime') {
          url = `https://api.themoviedb.org/3/discover/tv?with_genres=16&with_original_language=ja&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+         if (year) url += `&first_air_date_year=${year}`;
       } else if (type === 'asian') {
          url = `https://api.themoviedb.org/3/discover/tv?with_original_language=ko|zh|th|ja&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+         if (genre) {
+            const genreIds = genreMap[genre.toLowerCase()];
+            if (genreIds) url += `&with_genres=${genreIds.join('|')}`;
+         }
+         if (year) url += `&first_air_date_year=${year}`;
+      } else if (genre || year) {
+         // Use discover endpoint if filters are applied
+         const discType = searchType === 'multi' ? 'movie' : searchType;
+         url = `https://api.themoviedb.org/3/discover/${discType}?sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+         if (genre) {
+            const genreIds = genreMap[genre.toLowerCase()];
+            if (genreIds) url += `&with_genres=${genreIds.join('|')}`;
+         }
+         if (year) {
+            if (discType === 'movie') url += `&primary_release_year=${year}`;
+            else url += `&first_air_date_year=${year}`;
+         }
       } else {
          url = `https://api.themoviedb.org/3/trending/${searchType === 'multi' ? 'all' : searchType}/day?language=en-US&api_key=${TMDB_API_KEY}`;
       }
     } else {
       url = `https://api.themoviedb.org/3/search/${searchType}?query=${encodedQuery}&include_adult=false&language=en-US&page=1&api_key=${TMDB_API_KEY}`;
+      if (year && searchType === 'movie') url += `&primary_release_year=${year}`;
+      if (year && searchType === 'tv') url += `&first_air_date_year=${year}`;
     }
 
     const response = await fetch(url, {
@@ -53,9 +96,20 @@ export const searchVaporpic = async (query: string, type?: string, _genre?: stri
     }
 
     const data = await response.json();
+    let results = data.results || [];
+    
+    // Local genre filtering for text searches since TMDB search endpoint doesn't support with_genres
+    if (query.trim() !== '' && genre) {
+       const genreIds = genreMap[genre.toLowerCase()];
+       if (genreIds) {
+          results = results.filter((item: any) => 
+            item.genre_ids && item.genre_ids.some((id: number) => genreIds.includes(id))
+          );
+       }
+    }
 
     // Map TMDB results to our format
-    const mappedResults: VaporpicMediaItem[] = (data.results || []).map((item: any) => {
+    const mappedResults: VaporpicMediaItem[] = results.map((item: any) => {
       // For multi search, media_type comes from TMDB. For discover/search specific, we force it.
       let mappedMediaType = item.media_type || searchType;
       
