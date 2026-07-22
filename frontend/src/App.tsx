@@ -237,7 +237,11 @@ function App() {
           roomId={roomId} 
           isOwner={isOwner} 
           onLeave={handleLeave} 
-          onHostMigrate={() => setIsOwner(true)} 
+          onHostMigrate={(isHost: boolean) => {
+             setIsOwner(isHost);
+             const saved = JSON.parse(sessionStorage.getItem('watch2gether_room') || '{}');
+             sessionStorage.setItem('watch2gether_room', JSON.stringify({ ...saved, isOwner: isHost }));
+          }} 
           roomConfig={roomConfig}
         />
       )}

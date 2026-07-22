@@ -29,9 +29,9 @@ Watch2gether is a powerful, lightweight synchronized media player built for watc
 * **💬 Live Text Chat**: Integrated scrolling chat panel allowing users to coordinate watch parties with ease.
 * **🎭 Theater Mode**: One-click immersive viewing that hides all extra UI for a cinematic experience.
 * **🔄 Persistent Auto-Rejoin**: Drop out accidentally? Browsers seamlessly store session data, instantly re-entering the room upon refresh.
-* **👑 Host Migration**: When the host disconnects, the server gracefully elevates a random viewer to become the new Room Host to keep the party alive.
+* **👑 Host Migration & Transfer**: When the host disconnects, the server gracefully elevates a random viewer to keep the party alive. Hosts can also manually pass their privileges to any viewer via the "Make Host" button!
 * **🚪 Public & Private Rooms**: Browse available open rooms on the global live list or lock down your movie night with passwords.
-* **🎨 Modern UI**: Built with React and styled beautifully with a glassmorphic dark-mode design.
+* **🎨 Modern UI**: Built with React and styled beautifully with a glassmorphic dark-mode design, featuring sleek toast notifications rather than intrusive browser alerts.
 
 ## 🏗️ Architecture
 

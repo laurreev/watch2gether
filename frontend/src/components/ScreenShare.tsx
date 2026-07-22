@@ -8,7 +8,7 @@ interface ScreenShareProps {
   roomId: string;
   isOwner: boolean;
   onLeave: (msg?: string) => void;
-  onHostMigrate: () => void;
+  onHostMigrate: (isHost: boolean) => void;
   roomConfig?: { isPublic: boolean; password?: string };
 }
 
@@ -209,18 +209,26 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     if (!socket) return;
     
     const handleChat = (msg: any) => setChatMessages(prev => [...prev, msg]);
+    
     const handleMigrate = () => {
-      setNotification("The previous Host disconnected. You have been promoted to Host!");
+      setNotification("You have been promoted to Host!");
       setTimeout(() => setNotification(null), 5000);
-      onHostMigrate();
+      onHostMigrate(true);
+    };
+    const handleDemote = () => {
+      setNotification("You are no longer the Host.");
+      setTimeout(() => setNotification(null), 5000);
+      onHostMigrate(false);
     };
 
     socket.on('chat-message', handleChat);
     socket.on('host-migrated', handleMigrate);
+    socket.on('host-demoted', handleDemote);
 
     return () => {
        socket.off('chat-message', handleChat);
        socket.off('host-migrated', handleMigrate);
+       socket.off('host-demoted', handleDemote);
     };
   }, [socket, onHostMigrate]);
 
@@ -635,11 +643,24 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                      <h4 style={{ margin: '0 0 0.5rem 0', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem' }}>In Room</h4>
                      {usersList && usersList.length > 0 ? (
                        <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '200px', overflowY: 'auto' }}>
-                         {usersList.map(u => (
-                           <li key={u.id} style={{ padding: '0.25rem 0', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)' }}>
-                             {u.nickname} {u.id === socket?.id ? '(You)' : ''}
-                           </li>
-                         ))}
+                          {usersList.map(u => (
+                            <li key={u.id} style={{ padding: '0.25rem 0', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>{u.nickname} {u.isHost ? '(Host)' : ''} {u.id === socket?.id ? '(You)' : ''}</span>
+                              {isOwner && u.id !== socket?.id && (
+                                <button 
+                                  onClick={() => {
+                                    if (socket) {
+                                       socket.emit('pass-host', { roomId, targetId: u.id });
+                                    }
+                                  }}
+                                  className="btn btn-primary"
+                                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
+                                >
+                                  Make Host
+                                </button>
+                              )}
+                            </li>
+                          ))}
                        </ul>
                      ) : (
                        <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>Only you</div>

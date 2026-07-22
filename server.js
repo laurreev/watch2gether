@@ -70,7 +70,7 @@ io.on('connection', (socket) => {
         socket.emit('room-users', usersInRoom.filter(id => id !== socket.id));
         socket.to(roomId).emit('user-joined', socket.id);
         
-        const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown' }));
+        const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === roomHosts.get(roomId) }));
         io.to(roomId).emit('room-user-list', usersData);
         
         if (roomMedia.has(roomId)) {
@@ -130,7 +130,7 @@ io.on('connection', (socket) => {
                         io.to(newHost).emit('host-migrated');
                         socket.to(room).emit('user-disconnected', socket.id);
                         
-                        const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown' }));
+                        const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === roomHosts.get(room) }));
                         io.to(room).emit('room-user-list', usersData);
                     } else {
                         roomHosts.delete(room);
@@ -141,11 +141,25 @@ io.on('connection', (socket) => {
                 } else {
                     socket.to(room).emit('user-disconnected', socket.id);
                     const clients = Array.from(io.sockets.adapter.rooms.get(room) || []).filter(id => id !== socket.id);
-                    const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown' }));
+                    const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === roomHosts.get(room) }));
                     io.to(room).emit('room-user-list', usersData);
                     io.emit('public-rooms-updated');
                 }
             }
+        }
+    });
+
+    socket.on('pass-host', (data) => {
+        const roomId = data.roomId;
+        const targetId = data.targetId;
+        if (roomHosts.get(roomId) === socket.id) {
+            roomHosts.set(roomId, targetId);
+            io.to(targetId).emit('host-migrated');
+            socket.emit('host-demoted');
+            const room = io.sockets.adapter.rooms.get(roomId);
+            const usersInRoom = room ? Array.from(room) : [];
+            const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === targetId }));
+            io.to(roomId).emit('room-user-list', usersData);
         }
     });
 

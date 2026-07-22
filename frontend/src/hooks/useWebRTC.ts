@@ -27,7 +27,12 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
   const usersInRoomRef = useRef<Set<string>>(new Set());
   const [userCount, setUserCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const [usersList, setUsersList] = useState<{ id: string, nickname: string }[]>([]);
+  const [usersList, setUsersList] = useState<{ id: string, nickname: string, isHost?: boolean }[]>([]);
+  const isOwnerRef = useRef(isOwner);
+
+  useEffect(() => {
+    isOwnerRef.current = isOwner;
+  }, [isOwner]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -41,7 +46,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
       console.log('Connected to signaling server');
       socketRef.current?.emit('join-room', { 
         roomId, 
-        isOwner, 
+        isOwner: isOwnerRef.current, 
         isPublic: roomConfig?.isPublic ?? true,
         password: roomConfig?.password ?? '',
         nickname: localStorage.getItem('watch2gether_nickname') || ''
@@ -52,8 +57,13 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
       });
     });
 
-    socketRef.current.on('room-user-list', (users: { id: string, nickname: string }[]) => {
-      setUsersList(users);
+    socketRef.current.on('room-user-list', (users: { id: string, nickname: string, isHost?: boolean }[]) => {
+      const sortedUsers = [...users].sort((a, b) => {
+        if (a.isHost && !b.isHost) return -1;
+        if (!a.isHost && b.isHost) return 1;
+        return 0;
+      });
+      setUsersList(sortedUsers);
       setUserCount(users.length);
     });
 
@@ -62,7 +72,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
       setUserCount(usersInRoomRef.current.size);
       
       // If we are already sharing, initiate connections to everyone in the room
-      if (isOwner && localStreamRef.current) {
+      if (isOwnerRef.current && localStreamRef.current) {
         users.forEach(userId => {
           createPeerConnection(userId, localStreamRef.current, true);
         });
@@ -75,7 +85,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
       setUserCount(usersInRoomRef.current.size);
       // Initiate connection to the new user immediately if we are the owner,
       // provided we are sharing a stream
-      if (isOwner && localStreamRef.current) {
+      if (isOwnerRef.current && localStreamRef.current) {
          createPeerConnection(userId, localStreamRef.current, true);
       }
     });
@@ -133,7 +143,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
       peersRef.current.forEach(pc => pc.close());
       peersRef.current.clear();
     };
-  }, [roomId, isOwner]);
+  }, [roomId]);
 
   const createPeerConnection = (userId: string, stream: MediaStream | null, isInitiator: boolean) => {
     if (peersRef.current.has(userId)) {

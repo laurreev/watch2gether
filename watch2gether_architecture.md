@@ -58,6 +58,25 @@ Because Vidsrc embeds do not rely on IP-locked auth tokens, synchronizing media 
 3. **Instant Viewer Sync**: The server broadcasts this packet. Every Viewer's browser independently regenerates the exact same Vidsrc embed URL and loads the iframe.
 4. **Late Joiners**: If a viewer joins halfway through, the Signaling Server automatically pushes the active media packet to them instantly upon connection!
 
+## 6. Room State Management & Access Control
+
+Watch2gether manages rooms entirely in-memory on the Node.js server via `Map` objects (`roomHosts`, `roomConfig`, `roomMedia`).
+
+### Private Rooms & Authentication
+Rooms can be created as **Public** (listed on the global directory) or **Private** (hidden).
+1. When a user creates a Private Room, they supply a password.
+2. The server stores this in `roomConfig`.
+3. When joining, the server validates the password before ever emitting the `room-user-list` or `play-media` packets. If validation fails, an error callback is returned preventing the client from initializing its WebRTC endpoints.
+
+### Persistent Sessions
+To prevent accidental drops (like refreshing the page) from kicking users back to the lobby, the frontend uses `sessionStorage`. If the user is the Host and refreshes, their `isOwner` flag persists locally, allowing them to rejoin and claim their throne before the server drops the room (assuming they rejoin fast enough).
+
+### Host Migration & Privilege Transfer
+Because WebRTC heavily relies on the Host's stream, Host Migration is a critical component:
+1. **Automatic Migration:** If the Host drops unexpectedly, the server detects the `disconnecting` event, picks a random active viewer from the room, and broadcasts `host-migrated`.
+2. **Manual Transfer:** The active Host can use the "Make Host" button to emit a `pass-host` event. The server updates `roomHosts`, elevates the target viewer, and demotes the old host.
+3. **Seamless Transitions:** `isOwner` is managed in React state and stored in a `useRef` hook for the WebRTC connection layer. This allows the host role to swap hands without tearing down the existing WebSocket connection (which would cause annoying blips/reconnect loops).
+
 ## Nerd Stats summary
 *   **Backend CPU Usage for Media**: 0.0% (Fully client-side)
 *   **Token Generation Time**: 0ms (Stateless string interpolation)
