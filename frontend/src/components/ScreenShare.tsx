@@ -373,6 +373,18 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                </button>
              </div>
           )}
+          <a href={
+             (() => {
+               const ua = navigator.userAgent.toLowerCase();
+               if (ua.includes('edg/')) return 'https://microsoftedge.microsoft.com/addons/detail/ublock-origin/odfafepnkmbhccpbejgmiehpchacaeak';
+               if (ua.includes('chrome') && !ua.includes('edg/')) return 'https://chromewebstore.google.com/detail/ublock-origin-lite/ddkjiahejlhfcafbddmgiahcphecmpfh?utm_source=ext_app_menu';
+               if (ua.includes('firefox')) return 'https://addons.mozilla.org/en-US/firefox/addon/ublock-origin/';
+               if (ua.includes('safari') && !ua.includes('chrome') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('mac os')) return 'https://apps.apple.com/us/app/ublock-origin-lite/id6745342698';
+               return 'https://ublockorigin.com/';
+             })()
+          } target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#8b0000', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none' }}>
+            <span style={{ fontSize: '1.2rem' }}>🛡️</span> Install AdBlock
+          </a>
           <button className="btn btn-leave" onClick={onLeave}>
             Leave
           </button>
@@ -433,7 +445,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                              width="100%"
                              height="100%"
                              allowFullScreen
-                             allow="autoplay; fullscreen"
+                             allow="fullscreen"
                              style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
                            />
                          </>
