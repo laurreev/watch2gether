@@ -1,24 +1,12 @@
-# Use the official Playwright Python image to ensure all browser dependencies are present
-FROM mcr.microsoft.com/playwright/python:v1.40.0-jammy
+# Use official lightweight Node.js image
+FROM node:22-alpine
 
 # Set working directory
 WORKDIR /app
 
-# Install Node.js (v22 LTS)
-RUN apt-get update && apt-get install -y curl
-RUN curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-RUN apt-get install -y nodejs
-
-# Copy requirements and install python dependencies
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-# Install Playwright browsers
-RUN playwright install chromium
-
-# Copy Node dependencies
+# Copy root Node dependencies
 COPY package*.json ./
-RUN npm install
+RUN npm install --production=false
 
 # Copy frontend dependencies
 COPY frontend/package*.json ./frontend/
@@ -27,7 +15,7 @@ RUN cd frontend && npm install
 # Copy the rest of the application
 COPY . .
 
-# Build frontend
+# Build the frontend (Vite will inject VITE_TMDB_API_KEY if present in environment)
 RUN cd frontend && npm run build
 
 # Expose port (Render sets process.env.PORT automatically)

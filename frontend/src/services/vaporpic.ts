@@ -111,13 +111,28 @@ export const getEpisodes = async (tmdbId: string): Promise<number> => {
 export const getVaporpicIframe = async (url: string, server?: string, ep?: string, season?: number): Promise<string> => {
     // URL is the TMDB ID in this new architecture
     const tmdbId = url;
+    const seasonNum = season || 1;
     
-    // Check if it's a TV show (ep is passed)
+    // Server 3: Multiembed
+    if (server === '3') {
+        if (ep !== undefined && ep !== null) {
+            return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${seasonNum}&e=${ep}`;
+        }
+        return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
+    }
+    
+    // Server 2: 2Embed
+    if (server === '2') {
+        if (ep !== undefined && ep !== null) {
+            return `https://www.2embed.cc/embedtv/${tmdbId}&s=${seasonNum}&e=${ep}`;
+        }
+        return `https://www.2embed.cc/embed/${tmdbId}`;
+    }
+    
+    // Server 1 (Default): Vidsrc
     if (ep !== undefined && ep !== null) {
-        const seasonNum = season || 1;
         return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
     }
     
-    // Otherwise it's a Movie
     return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
 };

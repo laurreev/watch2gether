@@ -324,9 +324,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                  onChange={(e) => handleServerChange(e.target.value)}
                  disabled={isExtractingServer}
                >
-                 <option value="1">Server 1</option>
-                 <option value="2">Server 2</option>
-                 <option value="3">Server 3</option>
+                  <option value="1">Vidsrc ME</option>
+                  <option value="2">2Embed</option>
+                  <option value="3">Multiembed</option>
                </select>
                <button className="btn btn-danger" onClick={handleStopMedia}>
                  Stop Playing
@@ -374,17 +374,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                      </div>
                   ) : playingMedia.url ? (
                      <div id="media-player-container" style={{ width: '100%', flex: 1, minHeight: '500px', background: '#000', position: 'relative' }}>
-                       {playingMedia.url.includes('netoda.tech/watch') || playingMedia.url.includes('vidsrc.me') ? (
-                         <>
-                           <iframe
-                             src={playingMedia.url}
-                             width="100%"
-                             height="100%"
-                             allowFullScreen
-                             style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
-                           />
-                         </>
-                       ) : (
+                       {playingMedia.url.includes('.mp4') || playingMedia.url.includes('.m3u8') ? (
                          <>
                            {/* @ts-ignore react-player types issue */}
                            <ReactPlayer
@@ -394,6 +384,16 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave }) =
                              controls={true}
                              playing
                              style={{ position: 'absolute', top: 0, left: 0 }}
+                           />
+                         </>
+                       ) : (
+                         <>
+                           <iframe
+                             src={playingMedia.url}
+                             width="100%"
+                             height="100%"
+                             allowFullScreen
+                             style={{ position: 'absolute', top: 0, left: 0, border: 'none' }}
                            />
                          </>
                        )}

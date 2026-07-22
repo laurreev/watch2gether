@@ -38,9 +38,12 @@ The actual video playback leverages **Vidsrc**, a stateless video embed provider
 ### The Magic of Stateless Embeds
 Previously, the app required a heavy Python backend to reverse-engineer Cloudflare protections and generate complex AES-GCM encrypted tokens for Fmovies. 
 
-With the Vidsrc architecture, generating a video stream is instant and requires **zero encryption overhead**:
-*   **For Movies:** The URL is assembled cleanly as `https://vidsrc.me/embed/movie?tmdb={tmdbId}`.
-*   **For TV Shows:** The URL dynamically injects the season and episode parameters: `https://vidsrc.me/embed/tv?tmdb={tmdbId}&season={seasonNum}&episode={episodeNum}`.
+With the new architecture, generating a video stream is instant and requires **zero encryption overhead**. The frontend relies on three redundant, stateless embed networks:
+*   **Server 1 (Vidsrc ME):** `https://vidsrc.me/embed/movie?tmdb={tmdbId}`
+*   **Server 2 (2Embed):** `https://www.2embed.cc/embed/{tmdbId}`
+*   **Server 3 (Multiembed):** `https://multiembed.mov/?video_id={tmdbId}&tmdb=1`
+
+TV Show routing dynamically injects the season and episode parameters depending on the active server format (e.g., `&season={s}&episode={e}` for Vidsrc, or `&s={s}&e={e}` for 2Embed and Multiembed).
 
 ### 5. Media Synchronization 
 
