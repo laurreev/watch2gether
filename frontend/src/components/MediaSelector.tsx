@@ -40,14 +40,6 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
     setResults([]);
     
     const fetchMedia = async () => {
-      const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
-      if (!TMDB_API_KEY || TMDB_API_KEY === 'undefined' || TMDB_API_KEY === '') {
-        setResults([]);
-        setIsLoading(false);
-        alert("CRITICAL ERROR: VITE_TMDB_API_KEY is missing from the build! Your Render environment variables were not injected during the Docker build. Please ensure the Dockerfile contains the ARG VITE_TMDB_API_KEY instruction and you have pushed it to GitHub.");
-        return;
-      }
-      
       try {
         // Map UI tabs to API media types
         const typeMapping: Record<string, string> = {
