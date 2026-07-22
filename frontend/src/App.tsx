@@ -26,6 +26,9 @@ function App() {
   const [joinPromptTarget, setJoinPromptTarget] = useState<string | null>(null);
   const [joinPromptPassword, setJoinPromptPassword] = useState('');
 
+  const [nickname, setNickname] = useState(() => localStorage.getItem('watch2gether_nickname') || '');
+  const [tempNickname, setTempNickname] = useState('');
+
   // Session auto-rejoin
   useEffect(() => {
     const savedRoom = sessionStorage.getItem('watch2gether_room');
@@ -122,27 +125,61 @@ function App() {
     sessionStorage.setItem('watch2gether_room', JSON.stringify({
       id: targetId,
       isOwner: false,
-      attemptedPassword
+      password: attemptedPassword
     }));
 
     setRoomId(targetId);
     setIsOwner(false);
+    setRoomConfig({ isPublic: false, password: attemptedPassword });
     setInRoom(true);
     setJoinPromptTarget(null);
   };
 
-  const handleLeave = () => {
+  const handleLeave = (errorMsg?: string) => {
     setInRoom(false);
     sessionStorage.removeItem('watch2gether_room');
+    if (typeof errorMsg === 'string') {
+      setError(errorMsg);
+    }
   };
 
   return (
     <div className="app-container">
       <header className="header glass">
         <div className="logo">Watch2Gether</div>
+        {nickname && !inRoom && (
+            <div className="nickname-display">
+              <span>Playing as <strong>{nickname}</strong></span>
+              <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }} onClick={() => setNickname('')}>Change</button>
+            </div>
+        )}
       </header>
 
-      {!inRoom ? (
+      {!nickname ? (
+         <main className="join-container">
+           <div className="join-card glass" style={{ maxWidth: 400, margin: '2rem auto' }}>
+             <h2 className="join-title" style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Choose a Nickname</h2>
+             <form onSubmit={(e) => { 
+                e.preventDefault(); 
+                if (tempNickname.trim()) {
+                   localStorage.setItem('watch2gether_nickname', tempNickname.trim()); 
+                   setNickname(tempNickname.trim()); 
+                }
+             }}>
+               <input 
+                  value={tempNickname} 
+                  onChange={e => setTempNickname(e.target.value)} 
+                  placeholder="Enter your nickname" 
+                  required 
+                  className="input-field" 
+                  style={{ marginBottom: '1rem' }} 
+                  autoFocus
+               />
+               <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Continue</button>
+             </form>
+           </div>
+         </main>
+      ) : !inRoom ? (
         <main className="join-container">
           <div className="landing-grid">
             <div className="join-card glass">

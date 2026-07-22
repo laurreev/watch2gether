@@ -17,7 +17,7 @@ const resolutionSettings: Record<Resolution, any> = {
   'max': { width: { ideal: 2560 }, height: { ideal: 1440 }, frameRate: { ideal: 144 } },
 };
 
-export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomConfig?: { isPublic: boolean, password?: string }, onHostLeft?: () => void) => {
+export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomConfig?: { isPublic: boolean, password?: string }, onLeave?: (msg?: string) => void) => {
   const [localStream, setLocalStream] = useState<MediaStream | null>(null);
   const localStreamRef = useRef<MediaStream | null>(null);
   const [remoteStreams, setRemoteStreams] = useState<Map<string, MediaStream>>(new Map());
@@ -27,6 +27,7 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
   const usersInRoomRef = useRef<Set<string>>(new Set());
   const [userCount, setUserCount] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [usersList, setUsersList] = useState<{ id: string, nickname: string }[]>([]);
 
   useEffect(() => {
     if (!roomId) return;
@@ -42,8 +43,18 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
         roomId, 
         isOwner, 
         isPublic: roomConfig?.isPublic ?? true,
-        password: roomConfig?.password ?? ''
+        password: roomConfig?.password ?? '',
+        nickname: localStorage.getItem('watch2gether_nickname') || ''
+      }, (response: any) => {
+         if (response && !response.success) {
+            if (onLeave) onLeave(response.message);
+         }
       });
+    });
+
+    socketRef.current.on('room-user-list', (users: { id: string, nickname: string }[]) => {
+      setUsersList(users);
+      setUserCount(users.length);
     });
 
     socketRef.current.on('room-users', (users: string[]) => {
@@ -93,9 +104,9 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
       }
     });
 
-    socketRef.current.on('host-disconnected', () => {
-      if (onHostLeft) {
-        onHostLeft();
+    socketRef.current.on('host-left', () => {
+      if (onLeave) {
+        onLeave('The host has left the room.');
       }
     });
 
@@ -257,5 +268,5 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
     }
   };
 
-  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket };
+  return { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, usersList, socket };
 };

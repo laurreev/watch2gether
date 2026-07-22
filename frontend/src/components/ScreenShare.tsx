@@ -7,7 +7,7 @@ const ReactPlayer = ReactPlayerModule as any;
 interface ScreenShareProps {
   roomId: string;
   isOwner: boolean;
-  onLeave: () => void;
+  onLeave: (msg?: string) => void;
   onHostMigrate: () => void;
   roomConfig?: { isPublic: boolean; password?: string };
 }
@@ -184,7 +184,7 @@ const VideoStream: React.FC<{ stream: MediaStream | null; label: string; isLocal
 };
 
 const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onHostMigrate, roomConfig }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, socket } = useWebRTC(roomId, isOwner, roomConfig, onLeave);
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, usersList, socket } = useWebRTC(roomId, isOwner, roomConfig, onLeave);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
   const [showMediaSelector, setShowMediaSelector] = useState(false);
@@ -193,9 +193,12 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const [isExtractingServer, setIsExtractingServer] = useState(false);
 
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [showViewersList, setShowViewersList] = useState(false);
+  const [showMobileControls, setShowMobileControls] = useState(false);
   const [chatMessages, setChatMessages] = useState<{username: string, text: string, timestamp: number}[]>([]);
   const [chatInput, setChatInput] = useState('');
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -207,7 +210,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     
     const handleChat = (msg: any) => setChatMessages(prev => [...prev, msg]);
     const handleMigrate = () => {
-      alert("The previous Host disconnected. You have been promoted to Host!");
+      setNotification("The previous Host disconnected. You have been promoted to Host!");
+      setTimeout(() => setNotification(null), 5000);
       onHostMigrate();
     };
 
@@ -226,7 +230,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     
     const msg = {
        roomId,
-       username: `User-${socket.id?.substring(0, 4) || 'Guest'}`,
+       username: localStorage.getItem('watch2gether_nickname') || 'You',
        text: chatInput.trim(),
        timestamp: Date.now()
     };
@@ -360,7 +364,13 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   return (
     <main className="room-container" style={{ padding: isTheaterMode ? '0' : '1rem', gap: isTheaterMode ? '0' : '1rem', background: isTheaterMode ? '#000' : '' }}>
       {!isTheaterMode && (
-        <div className="room-header glass" style={{ marginBottom: '1rem' }}>
+        <>
+          <div className="mobile-controls-toggle hide-on-desktop" style={{ marginBottom: '1rem' }}>
+            <button className="btn" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text)' }} onClick={() => setShowMobileControls(!showMobileControls)}>
+               {showMobileControls ? 'Hide Room Controls ▲' : 'Show Room Controls ▼'}
+            </button>
+          </div>
+          <div className={`room-header glass ${!showMobileControls ? 'hide-on-mobile' : ''}`} style={{ marginBottom: '1rem' }}>
           <div className="room-info">
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Room:</h2>
             <div className="room-id-badge" onClick={handleCopyLink} title="Click to copy" style={{ position: 'relative' }}>
@@ -377,23 +387,27 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
             {isOwner && (
               !localStream ? (
                 <div className="share-controls">
-                  <label className="cursor-toggle">
-                    <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
-                    Show Cursor
-                  </label>
-                  <select 
-                    className="input-field select-field" 
-                    value={resolution} 
-                    onChange={(e) => setResolution(e.target.value as Resolution)}
-                  >
-                    <option value="720p">720p</option>
-                    <option value="1080p">1080p</option>
-                    <option value="1440p">1440p</option>
-                    <option value="max">Max Quality (1440p)</option>
-                  </select>
-                  <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
-                    Start Sharing
-                  </button>
+                  {!playingMedia && (
+                    <>
+                      <label className="cursor-toggle">
+                        <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
+                        Show Cursor
+                      </label>
+                      <select 
+                        className="input-field select-field" 
+                        value={resolution} 
+                        onChange={(e) => setResolution(e.target.value as Resolution)}
+                      >
+                        <option value="720p">720p</option>
+                        <option value="1080p">1080p</option>
+                        <option value="1440p">1440p</option>
+                        <option value="max">Max Quality (1440p)</option>
+                      </select>
+                      <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
+                        Start Sharing
+                      </button>
+                    </>
+                  )}
                   <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector(true)}>
                     Find something to watch
                   </button>
@@ -437,11 +451,12 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
             } target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#8b0000', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none' }}>
               <span style={{ fontSize: '1.2rem' }}>🛡️</span> Install AdBlock
             </a>
-            <button className="btn btn-leave" onClick={onLeave}>
+            <button className="btn btn-leave" onClick={() => onLeave()}>
               Leave
             </button>
           </div>
         </div>
+        </>
       )}
 
       {isTheaterMode && (
@@ -454,6 +469,12 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
          </button>
       )}
 
+      {notification && (
+        <div style={{ position: 'fixed', top: '20px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(34, 197, 94, 0.9)', color: 'white', padding: '1rem 2rem', borderRadius: '2rem', zIndex: 10000, boxShadow: '0 4px 15px rgba(0,0,0,0.5)', fontWeight: 600, animation: 'fadeIn 0.3s ease-out' }}>
+          {notification}
+        </div>
+      )}
+
       {error && !isTheaterMode && (
         <div className="glass" style={{ padding: '1rem', color: 'var(--danger)', borderRadius: '0.5rem', textAlign: 'center', marginBottom: '1rem' }}>
           {error}
@@ -462,24 +483,28 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
 
       <div className="room-content-wrapper">
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', overflowY: 'auto', paddingRight: isTheaterMode ? '0' : '0.5rem' }}>
+        {(localStream || remoteStreams.size > 0 || !playingMedia) && (
           <div className="video-grid" style={{ marginBottom: isTheaterMode ? '0' : '1rem' }}>
         {localStream && (
-          <VideoStream stream={localStream} label="You (Sharing)" isLocal={true} />
+           <VideoStream stream={localStream} label={`${localStorage.getItem('watch2gether_nickname') || 'You'} (Sharing)`} isLocal={true} />
         )}
         
-        {Array.from(remoteStreams.entries()).map(([peerId, stream]) => (
-          <VideoStream key={peerId} stream={stream} label={`Viewer: ${peerId.substring(0, 5)}`} isLocal={false} />
-        ))}
+        {Array.from(remoteStreams.entries()).map(([peerId, stream]) => {
+           const nickname = usersList?.find(u => u.id === peerId)?.nickname || `Viewer: ${peerId.substring(0, 5)}`;
+           return <VideoStream key={peerId} stream={stream} label={nickname} isLocal={false} />;
+        })}
 
         {!localStream && remoteStreams.size === 0 && !playingMedia && (
-           <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', minHeight: '400px', borderRadius: '1rem', flexDirection: 'column', gap: '1rem' }}>
+           <div className="glass idle-placeholder" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', borderRadius: '1rem', flexDirection: 'column', gap: '1rem' }}>
                <h3 style={{ color: 'var(--text-muted)' }}>Waiting for someone to share their screen...</h3>
                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>Share the Room ID with your friends so they can join.</p>
            </div>
         )}
+          </div>
+        )}
 
         {playingMedia && (
-           <div className="glass" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gridColumn: '1 / -1', order: isTheaterMode ? -1 : 0, minHeight: isTheaterMode ? '100vh' : '600px', borderRadius: isTheaterMode ? '0' : '1rem', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', background: '#000', border: isTheaterMode ? 'none' : '1px solid var(--border)', overflow: 'hidden' }}>
+           <div className={`glass ${isTheaterMode ? 'theater-wrapper' : 'playing-media-wrapper'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', order: isTheaterMode ? 0 : 1, borderRadius: isTheaterMode ? '0' : '1rem', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', background: '#000', border: isTheaterMode ? 'none' : '1px solid var(--border)', overflow: 'hidden' }}>
                 <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
                  {!isTheaterMode && (
                    <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
@@ -494,7 +519,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                        Loading new server stream...
                      </div>
                   ) : playingMedia.url ? (
-                     <div id="media-player-container" style={{ width: '100%', flex: 1, minHeight: isTheaterMode ? '100vh' : '500px', background: '#000', position: 'relative' }}>
+                     <div id="media-player-container" className={isTheaterMode ? 'theater-player' : 'media-player-container'} style={{ width: '100%', flex: 1, background: '#000', position: 'relative' }}>
                        {playingMedia.url.includes('.mp4') || playingMedia.url.includes('.m3u8') ? (
                          <>
                            {/* @ts-ignore react-player types issue */}
@@ -580,12 +605,48 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
            </div>
         )}
         </div>
-      </div>
 
       {!isTheaterMode && (
           <div className="chat-panel glass">
-            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid var(--border)', fontWeight: 600 }}>
+            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                Live Chat
+               
+               <div style={{ position: 'relative' }}>
+                 <div 
+                    className="badge badge-primary" 
+                    style={{ cursor: 'pointer', userSelect: 'none', background: 'var(--primary)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.8rem' }}
+                    onClick={() => setShowViewersList(!showViewersList)}
+                 >
+                   👥 Viewers: {userCount}
+                 </div>
+                 
+                 {showViewersList && (
+                   <div className="glass" style={{
+                     position: 'absolute',
+                     top: '100%',
+                     right: 0,
+                     marginTop: '0.5rem',
+                     padding: '0.5rem',
+                     minWidth: '200px',
+                     borderRadius: '0.5rem',
+                     zIndex: 50,
+                     boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                   }}>
+                     <h4 style={{ margin: '0 0 0.5rem 0', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem' }}>In Room</h4>
+                     {usersList && usersList.length > 0 ? (
+                       <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '200px', overflowY: 'auto' }}>
+                         {usersList.map(u => (
+                           <li key={u.id} style={{ padding: '0.25rem 0', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)' }}>
+                             {u.nickname} {u.id === socket?.id ? '(You)' : ''}
+                           </li>
+                         ))}
+                       </ul>
+                     ) : (
+                       <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>Only you</div>
+                     )}
+                   </div>
+                 )}
+               </div>
             </div>
             <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {chatMessages.map((msg, idx) => (

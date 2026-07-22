@@ -38,14 +38,14 @@ io.on('connection', (socket) => {
 
     // User joins a room
     socket.on('join-room', (data, callback) => {
-        const roomId = typeof data === 'string' ? data : data.roomId;
-        const isOwner = typeof data === 'object' ? data.isOwner : false;
-        const isPublic = typeof data === 'object' ? data.isPublic : true;
-        const password = typeof data === 'object' ? data.password : '';
-        const attemptedPassword = typeof data === 'object' ? data.attemptedPassword : '';
+        const roomId = data.roomId;
+        const isOwner = data.isOwner;
+        const attemptedPassword = data.password;
+        
+        socket.nickname = data.nickname || `User-${socket.id.substring(0,4)}`;
 
         if (isOwner) {
-            roomConfig.set(roomId, { isPublic, password });
+            roomConfig.set(roomId, { isPublic: data.isPublic, password: data.password || '' });
             roomHosts.set(roomId, socket.id);
         } else {
             if (roomConfig.has(roomId)) {
@@ -61,7 +61,7 @@ io.on('connection', (socket) => {
         }
 
         socket.join(roomId);
-        console.log(`User ${socket.id} joined room: ${roomId}`);
+        console.log(`User ${socket.id} (${socket.nickname}) joined room: ${roomId}`);
         if (callback) callback({ success: true });
 
         const room = io.sockets.adapter.rooms.get(roomId);
@@ -69,6 +69,9 @@ io.on('connection', (socket) => {
 
         socket.emit('room-users', usersInRoom.filter(id => id !== socket.id));
         socket.to(roomId).emit('user-joined', socket.id);
+        
+        const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown' }));
+        io.to(roomId).emit('room-user-list', usersData);
         
         if (roomMedia.has(roomId)) {
             socket.emit('play-media', roomMedia.get(roomId));
@@ -126,6 +129,9 @@ io.on('connection', (socket) => {
                         roomHosts.set(room, newHost);
                         io.to(newHost).emit('host-migrated');
                         socket.to(room).emit('user-disconnected', socket.id);
+                        
+                        const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown' }));
+                        io.to(room).emit('room-user-list', usersData);
                     } else {
                         roomHosts.delete(room);
                         roomConfig.delete(room);
@@ -134,6 +140,9 @@ io.on('connection', (socket) => {
                     }
                 } else {
                     socket.to(room).emit('user-disconnected', socket.id);
+                    const clients = Array.from(io.sockets.adapter.rooms.get(room) || []).filter(id => id !== socket.id);
+                    const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown' }));
+                    io.to(room).emit('room-user-list', usersData);
                     io.emit('public-rooms-updated');
                 }
             }

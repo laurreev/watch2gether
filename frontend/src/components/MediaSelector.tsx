@@ -33,6 +33,12 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
   const [extractingId, setExtractingId] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [notification, setNotification] = useState<string | null>(null);
+
+  const showNotification = (msg: string) => {
+    setNotification(msg);
+    setTimeout(() => setNotification(null), 3000);
+  };
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
@@ -158,7 +164,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
 
   const handlePlay = async (item: MediaItem) => {
     if (!item.url) {
-      alert("No URL found for this media.");
+      showNotification("No URL found for this media.");
       return;
     }
     
@@ -193,11 +199,11 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
       if (m3u8Url) {
         onPlay({ ...item, url: m3u8Url, originalUrl: item.url, episode: ep, season: selectedSeason || undefined });
       } else {
-        alert("Failed to get video stream.");
+        showNotification("Failed to get video stream.");
       }
     } catch (e) {
       console.error(e);
-      alert("An error occurred during extraction.");
+      showNotification("An error occurred during extraction.");
     } finally {
       setExtractingId(null);
     }
@@ -206,6 +212,11 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
   return (
     <div className="media-selector-overlay" onClick={onClose}>
       <div className="media-selector-modal glass" onClick={e => e.stopPropagation()}>
+        {notification && (
+          <div style={{ position: 'absolute', top: '1rem', left: '50%', transform: 'translateX(-50%)', background: 'rgba(239, 68, 68, 0.9)', color: 'white', padding: '0.5rem 1rem', borderRadius: '2rem', zIndex: 1000, boxShadow: '0 4px 15px rgba(0,0,0,0.5)', fontWeight: 600, animation: 'fadeIn 0.3s ease-out' }}>
+            {notification}
+          </div>
+        )}
         <div className="media-selector-header">
           <h2>{selectedTvShow ? selectedTvShow.title : "Find something to watch"}</h2>
           <button className="icon-btn close-btn" onClick={onClose}>&times;</button>

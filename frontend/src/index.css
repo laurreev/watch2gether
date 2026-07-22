@@ -57,6 +57,13 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+.nickname-display {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
 .logo {
   font-size: 1.5rem;
   font-weight: 700;
@@ -86,11 +93,47 @@ body {
 }
 
 @media (max-width: 768px) {
+  .nickname-display {
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
   .landing-grid {
     grid-template-columns: 1fr;
   }
-  
+
   .hide-on-mobile {
+    display: none !important;
+  }
+
+  .idle-placeholder {
+    min-height: 0 !important;
+    aspect-ratio: 16 / 9;
+  }
+
+  .playing-media-wrapper {
+    min-height: 0 !important;
+  }
+
+  .media-player-container {
+    min-height: 0 !important;
+    aspect-ratio: 16 / 9;
+    height: auto !important;
+  }
+
+  .room-content-wrapper {
+    flex: none !important;
+  }
+
+  .chat-panel {
+    flex: 1 !important;
+    max-height: none !important;
+    min-height: 44vh !important;
+  }
+}
+
+@media (min-width: 769px) {
+  .hide-on-desktop {
     display: none !important;
   }
 }
@@ -163,7 +206,7 @@ body {
   width: 100%;
   padding: 1rem;
   border-radius: 0.75rem;
-  background: rgba(0,0,0,0.2);
+  background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--border);
   color: var(--text-main);
   font-size: 1rem;
@@ -248,7 +291,7 @@ body {
 .viewer-badge {
   margin-left: 1rem;
   padding: 0.5rem 1rem;
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
   border-radius: 2rem;
   font-size: 0.9rem;
   display: flex;
@@ -276,10 +319,11 @@ body {
 }
 
 .btn-leave {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
+
 .btn-leave:hover {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .select-field {
@@ -298,8 +342,9 @@ body {
   cursor: pointer;
   transition: background 0.2s;
 }
+
 .room-id-badge:hover {
-  background: rgba(255,255,255,0.1);
+  background: rgba(255, 255, 255, 0.1);
 }
 
 .video-grid {
@@ -308,6 +353,22 @@ body {
   gap: 1rem;
   flex: 1;
   min-height: 0;
+}
+
+.theater-player {
+  min-height: 100vh;
+}
+
+.idle-placeholder {
+  min-height: 400px;
+}
+
+.playing-media-wrapper {
+  min-height: 600px;
+}
+
+.media-player-container {
+  min-height: 500px;
 }
 
 .room-content-wrapper {
@@ -345,7 +406,7 @@ body {
   border-radius: 1rem;
   overflow: hidden;
   background: #000;
-  box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
   border: 1px solid var(--border);
   aspect-ratio: 16/9;
   width: 100%;
@@ -371,7 +432,7 @@ body {
   left: 0;
   right: 0;
   padding: 4rem 1rem 1rem 1rem;
-  background: linear-gradient(to top, rgba(0,0,0,0.9), transparent);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.9), transparent);
   display: flex;
   justify-content: space-between;
   align-items: flex-end;
@@ -386,7 +447,7 @@ body {
 }
 
 .video-label {
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   padding: 0.5rem 1rem;
   border-radius: 0.5rem;
@@ -406,14 +467,21 @@ body {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Fullscreen handling */
 .video-wrapper:fullscreen {
-   border-radius: 0;
-   border: none;
+  border-radius: 0;
+  border: none;
 }
 
 /* Video Actions */
@@ -448,7 +516,7 @@ body {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: rgba(0,0,0,0.6);
+  background: rgba(0, 0, 0, 0.6);
   backdrop-filter: blur(4px);
   padding: 0.25rem 0.75rem 0.25rem 0.25rem;
   border-radius: 2rem;
@@ -471,37 +539,45 @@ body {
     padding: 1rem;
     gap: 1rem;
   }
+
   .room-header {
     padding: 1rem;
     flex-direction: column;
     align-items: stretch;
     gap: 1.5rem;
   }
+
   .room-info {
     flex-direction: column;
     align-items: stretch;
     gap: 0.75rem;
   }
+
   .viewer-badge {
     margin-left: 0;
     justify-content: center;
   }
+
   .room-controls {
     flex-direction: column;
     align-items: stretch;
   }
+
   .share-controls {
     flex-direction: column;
     align-items: stretch;
     gap: 1rem;
   }
+
   .cursor-toggle {
     justify-content: center;
     padding: 0.5rem;
   }
+
   .btn {
     width: 100%;
   }
+
   .room-id-badge {
     text-align: center;
     word-break: break-all;
