@@ -39,7 +39,14 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
 
     // Connect to signaling server
     const socketUrl = import.meta.env.PROD ? window.location.origin : 'http://localhost:3000';
-    socketRef.current = io(socketUrl);
+    
+    let uid = localStorage.getItem('watch2gether_uid');
+    if (!uid) {
+      uid = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('watch2gether_uid', uid);
+    }
+    
+    socketRef.current = io(socketUrl, { query: { userId: uid } });
     setSocket(socketRef.current);
 
     socketRef.current.on('connect', () => {

@@ -34,18 +34,20 @@ function App() {
 
   // Active users count listener
   useEffect(() => {
-    // Only maintain the lobby socket if we're not in a room, 
-    // because useWebRTC will create its own socket connection when in a room.
-    if (inRoom) return;
+    let uid = localStorage.getItem('watch2gether_uid');
+    if (!uid) {
+      uid = Math.random().toString(36).substring(2, 15);
+      localStorage.setItem('watch2gether_uid', uid);
+    }
 
-    const socket = io(socketUrl);
+    const socket = io(socketUrl, { query: { userId: uid } });
     socket.on('active-users-count', (count: number) => {
       setActiveUsers(count);
     });
     return () => {
       socket.disconnect();
     };
-  }, [socketUrl, inRoom]);
+  }, [socketUrl]);
 
   // Session auto-rejoin
   useEffect(() => {

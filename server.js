@@ -22,9 +22,20 @@ const roomHosts = new Map();
 const roomMedia = new Map(); // Store playing media per room
 const roomConfig = new Map(); // Store { isPublic, password }
 
+const userSockets = new Map(); // socket.id -> userId
+const activeUsers = new Map(); // userId -> Set of socket.ids
+
 io.on('connection', (socket) => {
-    console.log(`User connected: ${socket.id}`);
-    io.emit('active-users-count', io.engine.clientsCount);
+    const userId = socket.handshake.query.userId || socket.id;
+    userSockets.set(socket.id, userId);
+    
+    if (!activeUsers.has(userId)) {
+        activeUsers.set(userId, new Set());
+    }
+    activeUsers.get(userId).add(socket.id);
+
+    console.log(`User connected: ${socket.id} (UID: ${userId})`);
+    io.emit('active-users-count', activeUsers.size);
 
     // Check if room exists and if it requires a password
     socket.on('check-room', (roomId, callback) => {
@@ -166,7 +177,15 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
-        io.emit('active-users-count', io.engine.clientsCount);
+        const uid = userSockets.get(socket.id);
+        if (uid && activeUsers.has(uid)) {
+            activeUsers.get(uid).delete(socket.id);
+            if (activeUsers.get(uid).size === 0) {
+                activeUsers.delete(uid);
+            }
+        }
+        userSockets.delete(socket.id);
+        io.emit('active-users-count', activeUsers.size);
     });
 });
 
