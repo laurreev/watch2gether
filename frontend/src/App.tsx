@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { io } from 'socket.io-client';
 import ScreenShare from './components/ScreenShare.tsx';
 import './index.css';
 
@@ -28,6 +29,23 @@ function App() {
 
   const [nickname, setNickname] = useState(() => localStorage.getItem('watch2gether_nickname') || '');
   const [tempNickname, setTempNickname] = useState('');
+
+  const [activeUsers, setActiveUsers] = useState<number>(0);
+
+  // Active users count listener
+  useEffect(() => {
+    // Only maintain the lobby socket if we're not in a room, 
+    // because useWebRTC will create its own socket connection when in a room.
+    if (inRoom) return;
+
+    const socket = io(socketUrl);
+    socket.on('active-users-count', (count: number) => {
+      setActiveUsers(count);
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, [socketUrl, inRoom]);
 
   // Session auto-rejoin
   useEffect(() => {
@@ -146,7 +164,13 @@ function App() {
   return (
     <div className="app-container">
       <header className="header glass">
-        <div className="logo">Watch2Gether</div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+          <div className="logo">Watch2Gether</div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', boxShadow: '0 0 8px #22c55e' }}></span>
+            {activeUsers} Active Users
+          </div>
+        </div>
         {nickname && !inRoom && (
             <div className="nickname-display">
               <span>Playing as <strong>{nickname}</strong></span>

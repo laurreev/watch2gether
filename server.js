@@ -24,6 +24,7 @@ const roomConfig = new Map(); // Store { isPublic, password }
 
 io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
+    io.emit('active-users-count', io.engine.clientsCount);
 
     // Check if room exists and if it requires a password
     socket.on('check-room', (roomId, callback) => {
@@ -165,6 +166,7 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log(`User disconnected: ${socket.id}`);
+        io.emit('active-users-count', io.engine.clientsCount);
     });
 });
 
