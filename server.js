@@ -72,6 +72,22 @@ io.on('connection', (socket) => {
             }
         }
 
+        const userId = userSockets.get(socket.id);
+        const existingRoom = io.sockets.adapter.rooms.get(roomId);
+        if (existingRoom) {
+            // Convert to array to avoid modifying the set while iterating
+            const existingSocketIds = Array.from(existingRoom);
+            for (const existingSocketId of existingSocketIds) {
+                if (existingSocketId !== socket.id && userSockets.get(existingSocketId) === userId) {
+                    const existingSocket = io.sockets.sockets.get(existingSocketId);
+                    if (existingSocket) {
+                        console.log(`Force disconnecting stale socket ${existingSocketId} for user ${userId} in room ${roomId}`);
+                        existingSocket.disconnect(true);
+                    }
+                }
+            }
+        }
+
         socket.join(roomId);
         console.log(`User ${socket.id} (${socket.nickname}) joined room: ${roomId}`);
         if (callback) callback({ success: true });
