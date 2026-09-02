@@ -329,26 +329,20 @@ body.theater-active .app-container {
   .room-controls > * {
     flex: 1 1 0;
     min-width: 0;
+  }
+
+  .room-controls > .btn,
+  .room-controls > a.btn,
+  .room-controls > div > button:first-child {
+    padding: 0.35rem 0.5rem !important;
+    font-size: clamp(0.5rem, 1.2cqw, 0.95rem);
+    white-space: normal;
+    line-height: 1.1;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: center;
-    white-space: normal;
-    overflow: hidden;
-    padding: 0.5rem 0.5cqw !important;
-  }
-
-
-  .room-controls .btn,
-  .room-controls a.btn,
-  .room-controls span,
-  .room-controls label,
-  .room-controls select,
-  .room-controls input {
-    font-size: clamp(0.5rem, 1.2cqw, 0.95rem);
-    white-space: normal;
-    line-height: 1.2;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    text-align: center;
   }
 }
 
