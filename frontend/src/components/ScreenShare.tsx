@@ -545,7 +545,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
           
           <div className="room-controls">
             {isOwner && (!localStream && !playingMedia) && (
-              <div className="share-controls" style={{ flexWrap: 'wrap' }}>
+              <>
                 <button className="btn btn-primary hide-on-mobile" onClick={() => setShowMediaSelector('local')}>
                   Find something to watch
                 </button>
@@ -556,7 +556,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                 <button className="btn" style={{ background: '#ef4444', color: 'white' }} onClick={() => setShowYoutubeInput(true)}>
                   Watch on Youtube
                 </button>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.75rem' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.75rem', flexWrap: 'wrap' }}>
                   <label className="cursor-toggle" style={{ margin: 0 }}>
                     <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
                     Cursor
@@ -576,10 +576,10 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                     Share Screen
                   </button>
                 </div>
-              </div>
+              </>
             )}
             {isOwner && (localStream || playingMedia) && (
-               <div style={{ display: 'flex', gap: '0.5rem' }}>
+               <>
                  {playingMedia && (
                    <select 
                      className="input-field select-field"
@@ -599,7 +599,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  }}>
                    {localStream && playingMedia ? 'Stop Session' : localStream ? 'Stop Sharing' : 'Stop Playing'}
                  </button>
-               </div>
+               </>
             )}
             {playingMedia && (
                <button className="btn hide-on-mobile" style={{ background: 'var(--primary)', padding: '0.3rem 0.6rem', fontSize: '0.85rem' }} onClick={() => setIsPip(!isPip)}>
