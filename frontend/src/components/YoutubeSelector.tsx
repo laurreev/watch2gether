@@ -68,9 +68,11 @@ const YoutubeSelector: React.FC<YoutubeSelectorProps> = ({ onPlay, onClose }) =>
     let aborted = false;
     const abortController = new AbortController();
     
+    // Show skeletons immediately when typing or scrolling, before the debounce finishes
+    setIsLoading(true);
+    
     const fetchYouTube = async () => {
       const actualQuery = searchQuery.trim() || defaultQuery;
-      setIsLoading(true);
       
       try {
         let url = `${API_BASE_URL}/api/yt/search?q=${encodeURIComponent(actualQuery)}`;
