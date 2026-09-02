@@ -194,6 +194,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const [isExtractingServer, setIsExtractingServer] = useState(false);
 
   const [isTheaterMode, setIsTheaterMode] = useState(false);
+  const [isPip, setIsPip] = useState(false);
   const [showViewersList, setShowViewersList] = useState(false);
   const [showMobileControls, setShowMobileControls] = useState(false);
   const [chatMessages, setChatMessages] = useState<{username: string, text: string, timestamp: number}[]>([]);
@@ -600,6 +601,11 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  </button>
                </div>
             )}
+            {playingMedia && (
+               <button className="btn hide-on-mobile" style={{ background: 'var(--primary)', padding: '0.3rem 0.6rem', fontSize: '0.85rem' }} onClick={() => setIsPip(!isPip)}>
+                 🖼️ PiP Mode
+               </button>
+            )}
             <button className="btn hide-on-mobile" style={{ background: 'var(--primary)', padding: '0.3rem 0.6rem', fontSize: '0.85rem' }} onClick={() => setIsTheaterMode(true)}>
               🎭 Theater Mode
             </button>
@@ -728,6 +734,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                                volume={ytVolume}
                                muted={ytMuted}
                                playbackRate={ytPlaybackRate}
+                               pip={isPip}
+                               onEnablePIP={() => setIsPip(true)}
+                               onDisablePIP={() => setIsPip(false)}
                                onPlay={() => { 
                                  if (canControlPlayback && !isSyncingRef.current) {
                                    setYtPlaying(true); 
@@ -763,6 +772,11 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                                  }} 
                                  style={{ width: '100px', cursor: 'pointer' }}
                                />
+                               <button className="icon-btn" onClick={() => setIsPip(!isPip)} title="Toggle Picture-in-Picture">
+                                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                                     <path d="M19 11h-8v6h8v-6zm4 8V4.98C23 3.88 22.1 3 21 3H3c-1.1 0-2 .88-2 1.98V19c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2zm-2 .02H3V4.97h18v14.05z" />
+                                  </svg>
+                               </button>
                                <button className="icon-btn" onClick={() => {
                                  if (!document.fullscreenElement) {
                                     document.getElementById('media-player-container')?.requestFullscreen();

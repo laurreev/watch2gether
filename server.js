@@ -270,59 +270,67 @@ app.get('/api/rooms', (req, res) => {
     res.json(publicRooms);
 });
 
-const ytSearch = require('yt-search');
 const https = require('https');
 
 app.get('/api/yt/search', async (req, res) => {
     try {
         const query = req.query.q;
+        const pageToken = req.query.pageToken;
+
         if (!query) {
             return res.status(400).json({ error: 'Missing query parameter' });
         }
 
         const apiKey = process.env.YOUTUBE_API_KEY;
         
-        if (apiKey) {
-            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`;
-            
-            https.get(url, (response) => {
-                let data = '';
-                response.on('data', (chunk) => { data += chunk; });
-                response.on('end', () => {
-                    if (response.statusCode !== 200) {
-                        console.error('YouTube API Error Response:', data);
-                        return res.status(500).json({ error: 'YouTube API returned an error. Check Render server logs for details.' });
+        if (!apiKey) {
+            return res.status(500).json({ error: 'YOUTUBE_API_KEY environment variable is missing.' });
+        }
+
+        let url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`;
+        if (pageToken) {
+            url += `&pageToken=${encodeURIComponent(pageToken)}`;
+        }
+        
+        https.get(url, (response) => {
+            let data = '';
+            response.on('data', (chunk) => { data += chunk; });
+            response.on('end', () => {
+                if (response.statusCode !== 200) {
+                    console.error('YouTube API Error Response:', data);
+                    return res.status(500).json({ error: 'YouTube API returned an error. Check server logs.' });
+                }
+                try {
+                    const parsedData = JSON.parse(data);
+                    if (!parsedData.items) {
+                        return res.status(500).json({ error: 'Invalid response from YouTube API' });
                     }
-                    try {
-                        const parsedData = JSON.parse(data);
-                        if (!parsedData.items) {
-                            console.error('YouTube API no items in response:', parsedData);
-                            return res.status(500).json({ error: 'Invalid response from YouTube API' });
+                    const videos = parsedData.items.map(item => {
+                        let formattedDate = 'Unknown Date';
+                        if (item.snippet.publishedAt) {
+                            const date = new Date(item.snippet.publishedAt);
+                            formattedDate = date.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
                         }
-                        const videos = parsedData.items.map(item => ({
+
+                        return {
                             videoId: item.id.videoId,
                             title: item.snippet.title,
                             thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
                             author: { name: item.snippet.channelTitle },
-                            timestamp: 'Video'
-                        }));
-                        res.json({ results: videos });
-                    } catch (parseErr) {
-                        console.error('YouTube API Parse Error:', parseErr);
-                        res.status(500).json({ error: 'Failed to parse YouTube API response' });
-                    }
-                });
-            }).on('error', (err) => {
-                console.error('HTTPS Get Error:', err.message);
-                res.status(500).json({ error: 'Network error reaching YouTube API' });
+                            timestamp: formattedDate
+                        };
+                    });
+                    res.json({ results: videos, nextPageToken: parsedData.nextPageToken });
+                } catch (parseErr) {
+                    console.error('YouTube API Parse Error:', parseErr);
+                    res.status(500).json({ error: 'Failed to parse YouTube API response' });
+                }
             });
+        }).on('error', (err) => {
+            console.error('HTTPS Get Error:', err.message);
+            res.status(500).json({ error: 'Network error reaching YouTube API' });
+        });
 
-        } else {
-            // Fallback for local development if no API key is set yet
-            const r = await ytSearch(query);
-            const videos = r.videos.slice(0, 20); // Top 20 results
-            return res.json({ results: videos });
-        }
     } catch (err) {
         console.error('Search Route Catch Error:', err);
         res.status(500).json({ error: 'Failed to search YouTube', details: err.message });

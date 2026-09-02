@@ -45,44 +45,83 @@ const YoutubeSelector: React.FC<YoutubeSelectorProps> = ({ onPlay, onClose }) =>
     };
   }, []);
 
-  const searchYouTube = async (query: string) => {
-    const actualQuery = query.trim() || defaultQuery;
-    
-    setIsLoading(true);
-    try {
-      const response = await fetch(`${API_BASE_URL}/api/yt/search?q=${encodeURIComponent(actualQuery)}`);
-      
-      if (!response.ok) {
-          const errData = await response.json().catch(() => ({}));
-          throw new Error(errData.error || 'Search failed (server error)');
-      }
-      
-      const data = await response.json();
-      
-      const mappedResults: YouTubeItem[] = data.results.map((v: any) => ({
-         id: v.videoId,
-         title: v.title,
-         type: 'YouTube',
-         imageUrl: v.thumbnail,
-         url: `https://www.youtube.com/watch?v=${v.videoId}`,
-         author: v.author?.name || 'Unknown',
-         timestamp: v.timestamp || '0:00'
-      }));
-      setResults(mappedResults);
-    } catch (error: any) {
-      console.error(error);
-      showNotification(error.message || "Failed to search YouTube");
-    } finally {
-      setIsLoading(false);
+  const [pageToken, setPageToken] = useState<string | null>(null);
+  const [nextPageToken, setNextPageToken] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Reset pagination when search query changes
+  useEffect(() => {
+    setPageToken(null);
+    setNextPageToken(null);
+    setHasMore(true);
+    setResults([]);
+  }, [searchQuery]);
+
+  const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
+    const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
+    if (scrollHeight - scrollTop <= clientHeight + 150 && !isLoading && hasMore && nextPageToken) {
+      setPageToken(nextPageToken);
     }
   };
 
   useEffect(() => {
+    let aborted = false;
+    const abortController = new AbortController();
+    
+    const fetchYouTube = async () => {
+      const actualQuery = searchQuery.trim() || defaultQuery;
+      setIsLoading(true);
+      
+      try {
+        let url = `${API_BASE_URL}/api/yt/search?q=${encodeURIComponent(actualQuery)}`;
+        if (pageToken) {
+          url += `&pageToken=${encodeURIComponent(pageToken)}`;
+        }
+        
+        const response = await fetch(url, { signal: abortController.signal });
+        
+        if (!response.ok) {
+            const errData = await response.json().catch(() => ({}));
+            throw new Error(errData.error || 'Search failed (server error)');
+        }
+        
+        const data = await response.json();
+        if (aborted) return;
+        
+        const mappedResults: YouTubeItem[] = data.results.map((v: any) => ({
+           id: v.videoId,
+           title: v.title,
+           type: 'YouTube',
+           imageUrl: v.thumbnail,
+           url: `https://www.youtube.com/watch?v=${v.videoId}`,
+           author: v.author?.name || 'Unknown',
+           timestamp: v.timestamp || 'Unknown Date'
+        }));
+        
+        setResults(prev => pageToken ? [...prev, ...mappedResults] : mappedResults);
+        setNextPageToken(data.nextPageToken || null);
+        setHasMore(!!data.nextPageToken);
+      } catch (error: any) {
+        if (error.name === 'AbortError') return;
+        if (!aborted) {
+          console.error(error);
+          showNotification(error.message || "Failed to search YouTube");
+        }
+      } finally {
+        if (!aborted) setIsLoading(false);
+      }
+    };
+
     const timeoutId = setTimeout(() => {
-      searchYouTube(searchQuery);
+      fetchYouTube();
     }, 800);
-    return () => clearTimeout(timeoutId);
-  }, [searchQuery]);
+
+    return () => {
+      aborted = true;
+      abortController.abort();
+      clearTimeout(timeoutId);
+    };
+  }, [searchQuery, pageToken, defaultQuery]);
 
   return (
     <div className="media-selector-overlay" onClick={onClose} style={{ zIndex: 10000 }}>
@@ -111,11 +150,11 @@ const YoutubeSelector: React.FC<YoutubeSelectorProps> = ({ onPlay, onClose }) =>
                   style={{ background: 'rgba(0,0,0,0.5)', border: '1px solid rgba(255,0,0,0.3)' }}
                   autoFocus
                 />
-                <button className="btn btn-primary search-btn" style={{ background: '#ef4444' }} onClick={() => searchYouTube(searchQuery)}>Search</button>
+                <button className="btn btn-primary search-btn" style={{ background: '#ef4444' }}>Search</button>
               </div>
             </div>
 
-            <div className="media-grid" style={{ overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }}>
+            <div className="media-grid" style={{ overflowY: 'auto', flex: 1, paddingRight: '0.5rem' }} onScroll={handleScroll}>
               {results.length > 0 ? (
                 <>
                   {results.map(item => (
@@ -135,7 +174,7 @@ const YoutubeSelector: React.FC<YoutubeSelectorProps> = ({ onPlay, onClose }) =>
                       </div>
                     </div>
                   ))}
-                  {isLoading && Array.from({ length: 4 }).map((_, i) => (
+                  {isLoading && hasMore && Array.from({ length: 4 }).map((_, i) => (
                     <div key={`skeleton-${i}`} className="media-tile skeleton-tile">
                       <div className="skeleton-image" style={{ aspectRatio: '16/9' }}></div>
                     </div>
