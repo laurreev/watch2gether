@@ -135,9 +135,10 @@ body.theater-active .app-container {
   }
 
   .chat-panel {
-    flex: 1 !important;
-    max-height: none !important;
-    min-height: 44vh !important;
+    flex: none !important;
+    height: 50vh !important;
+    max-height: 50vh !important;
+    min-height: 0 !important;
   }
 }
 

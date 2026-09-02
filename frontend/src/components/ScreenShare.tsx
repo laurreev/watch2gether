@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useWebRTC, type Resolution } from '../hooks/useWebRTC.ts';
 import MediaSelector from './MediaSelector.tsx';
+import YoutubeSelector from './YoutubeSelector.tsx';
 import ReactPlayerModule from 'react-player';
-const ReactPlayer = ReactPlayerModule as any;
+const ReactPlayer = (ReactPlayerModule as any).default || ReactPlayerModule;
 
 interface ScreenShareProps {
   roomId: string;
@@ -199,10 +200,44 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const [chatInput, setChatInput] = useState('');
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
+  const chatContainerRef = useRef<HTMLDivElement>(null);
+
+  // YouTube / ReactPlayer sync states
+  const [viewerControlEnabled, setViewerControlEnabled] = useState(false);
+  const [ytPlaying, setYtPlaying] = useState(true);
+  const [ytVolume, setYtVolume] = useState(1);
+  const [ytMuted, setYtMuted] = useState(!isOwner);
+  const [ytPlaybackRate, setYtPlaybackRate] = useState(1);
+
+  const reactPlayerRef = useRef<any>(null);
+  const isSyncingRef = useRef(false);
+  const [showYoutubeInput, setShowYoutubeInput] = useState(false);
+
+  const canControlPlayback = isOwner || viewerControlEnabled;
+
+  const handleYtAction = (action: 'play' | 'pause' | 'seek', time?: number) => {
+    if (!socket || !canControlPlayback || isSyncingRef.current) return;
+    const timestamp = time !== undefined ? time : (reactPlayerRef.current?.getCurrentTime() || 0);
+    socket.emit('yt-sync', { roomId, action, timestamp });
+  };
 
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    if (!isOwner || !socket || playingMedia?.type !== 'YouTube' || !ytPlaying) return;
+    
+    const interval = setInterval(() => {
+       if (!isSyncingRef.current) {
+          const timestamp = reactPlayerRef.current?.getCurrentTime() || 0;
+          socket.emit('yt-sync', { roomId, action: 'sync', timestamp });
+       }
+    }, 2500);
+    
+    return () => clearInterval(interval);
+  }, [isOwner, socket, playingMedia, ytPlaying, roomId]);
+
+  useEffect(() => {
+    if (chatContainerRef.current) {
+      chatContainerRef.current.scrollTop = chatContainerRef.current.scrollHeight;
+    }
   }, [chatMessages]);
 
   useEffect(() => {
@@ -219,18 +254,56 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
       setNotification("You are no longer the Host.");
       setTimeout(() => setNotification(null), 5000);
       onHostMigrate(false);
-      handleStopMedia();
       stopScreenShare();
+    };
+
+    const onYtSync = (data: { action: 'play'|'pause'|'seek'|'sync', timestamp: number }) => {
+      isSyncingRef.current = true;
+      const current = reactPlayerRef.current?.getCurrentTime() || 0;
+      
+      if (data.action === 'play') {
+         setYtPlaying(true);
+         if (Math.abs(current - data.timestamp) > 1.5) {
+            reactPlayerRef.current?.seekTo(data.timestamp, 'seconds');
+            setYtPlaybackRate(1);
+         }
+      } else if (data.action === 'pause') {
+         setYtPlaying(false);
+      } else if (data.action === 'seek') {
+         reactPlayerRef.current?.seekTo(data.timestamp, 'seconds');
+      } else if (data.action === 'sync') {
+         setYtPlaying(true);
+         const diff = current - data.timestamp;
+         if (Math.abs(diff) > 0.8) {
+            reactPlayerRef.current?.seekTo(data.timestamp, 'seconds');
+            setYtPlaybackRate(1);
+         } else if (diff < -0.3) {
+            setYtPlaybackRate(1.25);
+         } else if (diff > 0.3) {
+            setYtPlaybackRate(0.75);
+         } else {
+            setYtPlaybackRate(1);
+         }
+      }
+      setTimeout(() => { isSyncingRef.current = false; }, 500);
+    };
+    
+    const onViewerControlToggled = (enabled: boolean) => {
+       setViewerControlEnabled(enabled);
     };
 
     socket.on('chat-message', handleChat);
     socket.on('host-migrated', handleMigrate);
     socket.on('host-demoted', handleDemote);
+    socket.on('yt-sync', onYtSync);
+    socket.on('viewer-control-toggled', onViewerControlToggled);
 
     return () => {
        socket.off('chat-message', handleChat);
        socket.off('host-migrated', handleMigrate);
        socket.off('host-demoted', handleDemote);
+       socket.off('yt-sync', onYtSync);
+       socket.off('viewer-control-toggled', onViewerControlToggled);
     };
   }, [socket, onHostMigrate]);
 
@@ -350,6 +423,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
 
   const handleStopMedia = () => {
     setPlayingMedia(null);
+    setYtPlaying(true);
+    setViewerControlEnabled(false);
     if (isOwner && socket) {
       socket.emit('stop-media', roomId);
     }
@@ -382,6 +457,13 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     if (!socket || isOwner) return;
 
     const onPlayMedia = async (media: any) => {
+      if (media.type === 'YouTube') {
+         setPlayingMedia(media);
+         setActiveServer(media.serverStr || '1');
+         setYtPlaying(true);
+         return;
+      }
+
       // Clear the URL from the host so the viewer doesn't get an OOPS error
       const mediaWithoutUrl = { ...media, url: '' };
       setPlayingMedia(mediaWithoutUrl);
@@ -425,9 +507,26 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     <main className="room-container" style={{ padding: isTheaterMode ? '0' : '1rem', gap: isTheaterMode ? '0' : '1rem', background: isTheaterMode ? '#000' : '' }}>
       {!isTheaterMode && (
         <>
+          {isOwner && (
+            <div className="mobile-primary-actions hide-on-desktop" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
+              {(!localStream && !playingMedia) && (
+                <button className="btn btn-primary" onClick={() => setShowMediaSelector('local')}>
+                  Find something to watch
+                </button>
+              )}
+              {(localStream || playingMedia) && (
+                <button className="btn btn-danger" onClick={() => {
+                   if (localStream) stopScreenShare();
+                   if (playingMedia) handleStopMedia();
+                }}>
+                   {localStream && playingMedia ? 'Stop Session' : localStream ? 'Stop Sharing' : 'Stop Playing'}
+                </button>
+              )}
+            </div>
+          )}
           <div className="mobile-controls-toggle hide-on-desktop" style={{ marginBottom: '1rem' }}>
             <button className="btn" style={{ width: '100%', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)', color: 'var(--text)' }} onClick={() => setShowMobileControls(!showMobileControls)}>
-               {showMobileControls ? 'Hide Room Controls ▲' : 'Show Room Controls ▼'}
+               {showMobileControls ? 'Hide other room controls ▲' : 'View other room controls ▼'}
             </button>
           </div>
           <div className={`room-header glass ${!showMobileControls ? 'hide-on-mobile' : ''}`} style={{ marginBottom: '1rem' }}>
@@ -445,31 +544,37 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
           
           <div className="room-controls">
             {isOwner && (!localStream && !playingMedia) && (
-              <div className="share-controls">
-                <label className="cursor-toggle">
-                  <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
-                  Show Cursor
-                </label>
-                <select 
-                  className="input-field select-field" 
-                  value={resolution} 
-                  onChange={(e) => setResolution(e.target.value as Resolution)}
-                >
-                  <option value="720p">720p</option>
-                  <option value="1080p">1080p</option>
-                  <option value="1440p">1440p</option>
-                  <option value="max">Max Quality (1440p)</option>
-                </select>
-                <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
-                  Start Sharing
-                </button>
-                <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector('local')}>
+              <div className="share-controls" style={{ flexWrap: 'wrap' }}>
+                <button className="btn btn-primary hide-on-mobile" onClick={() => setShowMediaSelector('local')}>
                   Find something to watch
                 </button>
-                <button className="btn btn-primary" onClick={() => setShowMediaSelector('share')} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: 'center', padding: '0.5rem 1rem' }}>
+                <button className="btn" onClick={() => setShowMediaSelector('share')} style={{ background: '#10b981', color: 'white', display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: 'center', padding: '0.5rem 1rem' }}>
                   <span>Pick and Share</span>
                   <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 'normal', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Experimental. For PC only</span>
                 </button>
+                <button className="btn" style={{ background: '#ef4444', color: 'white' }} onClick={() => setShowYoutubeInput(true)}>
+                  Watch on Youtube
+                </button>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.75rem' }}>
+                  <label className="cursor-toggle" style={{ margin: 0 }}>
+                    <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
+                    Cursor
+                  </label>
+                  <select 
+                    className="input-field select-field" 
+                    value={resolution} 
+                    onChange={(e) => setResolution(e.target.value as Resolution)}
+                    style={{ padding: '0.3rem', height: 'auto', minHeight: 0 }}
+                  >
+                    <option value="720p">720p</option>
+                    <option value="1080p">1080p</option>
+                    <option value="1440p">1440p</option>
+                    <option value="max">Max</option>
+                  </select>
+                  <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem' }} onClick={() => startScreenShare(resolution, showCursor)}>
+                    Share Screen
+                  </button>
+                </div>
               </div>
             )}
             {isOwner && (localStream || playingMedia) && (
@@ -487,7 +592,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                       <option value="4">Vidlink (Anime/HD)</option>
                    </select>
                  )}
-                 <button className="btn btn-danger" onClick={() => {
+                 <button className="btn btn-danger hide-on-mobile" onClick={() => {
                    if (localStream) stopScreenShare();
                    if (playingMedia) handleStopMedia();
                  }}>
@@ -587,30 +692,88 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
            <div className={`glass ${isTheaterMode ? 'theater-wrapper' : 'playing-media-wrapper'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', order: isTheaterMode ? 0 : 1, borderRadius: isTheaterMode ? '0' : '1rem', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', background: '#000', border: isTheaterMode ? 'none' : '1px solid var(--border)' }}>
                 <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
                  {!isTheaterMode && (
-                   <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
-                     <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}{playingMedia.season ? ` - Season ${playingMedia.season}` : ''}{playingMedia.episode ? ` (Episode ${playingMedia.episode})` : ''}</h2>
-                     <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                       <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{playingMedia.type}</span>
-                     </div>
-                   </div>
-                 )}
+                    <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
+                      <h2 style={{ color: 'white', margin: 0, fontSize: '1.2rem' }}>Playing: {playingMedia.title}{playingMedia.season ? ` - Season ${playingMedia.season}` : ''}{playingMedia.episode ? ` (Episode ${playingMedia.episode})` : ''}</h2>
+                      <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                        {isOwner && playingMedia.type === 'YouTube' && (
+                           <label className="cursor-toggle" style={{ margin: 0, background: 'rgba(255,255,255,0.1)', padding: '0.3rem 0.6rem', borderRadius: '0.5rem' }}>
+                             <input type="checkbox" checked={viewerControlEnabled} onChange={(e) => {
+                                setViewerControlEnabled(e.target.checked);
+                                if (socket) socket.emit('toggle-viewer-control', { roomId, enabled: e.target.checked });
+                             }} />
+                             Allow Viewers to Control
+                           </label>
+                        )}
+                        <span style={{ color: 'var(--primary)', fontWeight: 500 }}>{playingMedia.type}</span>
+                      </div>
+                    </div>
+                  )}
                  {isExtractingServer ? (
                      <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                        Loading new server stream...
                      </div>
                   ) : playingMedia.url ? (
                      <div id="media-player-container" className={isTheaterMode ? 'theater-player' : 'media-player-container'} style={{ width: '100%', flex: 1, background: '#000', position: 'relative', transform: 'translateZ(0)' }}>
-                       {playingMedia.url.includes('.mp4') || playingMedia.url.includes('.m3u8') ? (
+                       {playingMedia.type === 'YouTube' || playingMedia.url.includes('.mp4') || playingMedia.url.includes('.m3u8') ? (
                          <>
                            {/* @ts-ignore react-player types issue */}
-                           <ReactPlayer
-                             url={playingMedia.url}
-                             width="100%"
-                             height="100%"
-                             controls={true}
-                             playing
-                             style={{ position: 'absolute', top: 0, left: 0 }}
-                           />
+                           <div style={{ width: '100%', height: '100%', pointerEvents: canControlPlayback ? 'auto' : 'none' }}>
+                             <ReactPlayer
+                               ref={reactPlayerRef}
+                               url={playingMedia.url}
+                               width="100%"
+                               height="100%"
+                               controls={canControlPlayback}
+                               playing={ytPlaying}
+                               volume={ytVolume}
+                               muted={ytMuted}
+                               playbackRate={ytPlaybackRate}
+                               onPlay={() => { 
+                                 if (canControlPlayback && !isSyncingRef.current) {
+                                   setYtPlaying(true); 
+                                   handleYtAction('play'); 
+                                 }
+                               }}
+                               onPause={() => { 
+                                 if (canControlPlayback && !isSyncingRef.current) {
+                                   setYtPlaying(false); 
+                                   handleYtAction('pause'); 
+                                 }
+                               }}
+                               onSeek={(time: number) => {
+                                 if (canControlPlayback && !isSyncingRef.current) handleYtAction('seek', time);
+                               }}
+                               style={{ position: 'absolute', top: 0, left: 0 }}
+                             />
+                           </div>
+                           {!canControlPlayback && (
+                             <div className="viewer-controls-overlay" style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: '1.5rem', background: 'linear-gradient(transparent, rgba(0,0,0,0.9))', display: 'flex', justifyContent: 'flex-end', gap: '1rem', zIndex: 10, alignItems: 'center' }}>
+                               {ytMuted && (
+                                 <button className="btn btn-secondary" style={{ marginRight: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem' }} onClick={() => setYtMuted(false)}>
+                                   Click to Unmute
+                                 </button>
+                               )}
+                               <input 
+                                 type="range" 
+                                 min="0" max="1" step="0.05" 
+                                 value={ytMuted ? 0 : ytVolume} 
+                                 onChange={e => {
+                                   setYtVolume(Number(e.target.value));
+                                   if (Number(e.target.value) > 0) setYtMuted(false);
+                                 }} 
+                                 style={{ width: '100px', cursor: 'pointer' }}
+                               />
+                               <button className="icon-btn" onClick={() => {
+                                 if (!document.fullscreenElement) {
+                                    document.getElementById('media-player-container')?.requestFullscreen();
+                                 } else {
+                                    document.exitFullscreen();
+                                 }
+                               }} title="Toggle Fullscreen">
+                                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+                               </button>
+                             </div>
+                           )}
                          </>
                        ) : (
                          <>
@@ -741,14 +904,13 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  )}
                </div>
             </div>
-            <div style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div ref={chatContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
               {chatMessages.map((msg, idx) => (
                 <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '0.5rem' }}>
                    <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginBottom: '0.2rem' }}>{msg.username}</div>
                    <div style={{ fontSize: '0.9rem', wordBreak: 'break-word' }}>{msg.text}</div>
                 </div>
               ))}
-              <div ref={chatEndRef} />
             </div>
              <form onSubmit={sendChatMessage} style={{ padding: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
                 <input 
@@ -769,6 +931,16 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
         <MediaSelector 
           onPlay={handlePlayMedia} 
           onClose={() => setShowMediaSelector(false)} 
+        />
+      )}
+
+      {showYoutubeInput && (
+        <YoutubeSelector 
+          onPlay={(item) => {
+            handlePlayMedia(item);
+            setShowYoutubeInput(false);
+          }} 
+          onClose={() => setShowYoutubeInput(false)} 
         />
       )}
     </main>

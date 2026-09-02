@@ -18,9 +18,11 @@ const io = new Server(server, {
     }
 });
 
-const roomHosts = new Map();
+const roomHosts = new Map(); // Store host userId for each room
 const roomMedia = new Map(); // Store playing media per room
 const roomConfig = new Map(); // Store { isPublic, password }
+const roomYtState = new Map(); // Store yt playback state
+const roomViewerControl = new Map(); // Store boolean for viewer control
 
 const userSockets = new Map(); // socket.id -> userId
 const activeUsers = new Map(); // userId -> Set of socket.ids
@@ -58,7 +60,7 @@ io.on('connection', (socket) => {
 
         if (isOwner) {
             roomConfig.set(roomId, { isPublic: data.isPublic, password: data.password || '' });
-            roomHosts.set(roomId, socket.id);
+            roomHosts.set(roomId, userSockets.get(socket.id));
         } else {
             if (roomConfig.has(roomId)) {
                 const config = roomConfig.get(roomId);
@@ -98,11 +100,19 @@ io.on('connection', (socket) => {
         socket.emit('room-users', usersInRoom.filter(id => id !== socket.id));
         socket.to(roomId).emit('user-joined', socket.id);
         
-        const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === roomHosts.get(roomId) }));
+        const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: userSockets.get(id) === roomHosts.get(roomId) }));
         io.to(roomId).emit('room-user-list', usersData);
         
         if (roomMedia.has(roomId)) {
             socket.emit('play-media', roomMedia.get(roomId));
+        }
+        
+        if (roomYtState.has(roomId)) {
+            socket.emit('yt-sync', roomYtState.get(roomId));
+        }
+        
+        if (roomViewerControl.has(roomId)) {
+            socket.emit('viewer-control-toggled', roomViewerControl.get(roomId));
         }
 
         if (roomConfig.get(roomId)?.isPublic) {
@@ -142,34 +152,68 @@ io.on('connection', (socket) => {
 
     socket.on('stop-media', (roomId) => {
         roomMedia.delete(roomId);
+        roomYtState.delete(roomId);
+        roomViewerControl.delete(roomId);
         socket.to(roomId).emit('stop-media');
         io.emit('public-rooms-updated');
     });
 
+    // YouTube / Synchronized Playback Events
+    socket.on('yt-sync', (data) => {
+        roomYtState.set(data.roomId, data);
+        // Relay to everyone else in the room
+        socket.to(data.roomId).emit('yt-sync', data);
+    });
+
+    socket.on('toggle-viewer-control', (data) => {
+        roomViewerControl.set(data.roomId, data.enabled);
+        io.to(data.roomId).emit('viewer-control-toggled', data.enabled);
+    });
+
     // Handle Disconnects & Host Migration
     socket.on('disconnecting', () => {
+        const userId = userSockets.get(socket.id);
         for (const room of socket.rooms) {
             if (room !== socket.id) {
-                if (roomHosts.get(room) === socket.id) {
+                if (roomHosts.get(room) === userId) {
                     const clients = Array.from(io.sockets.adapter.rooms.get(room) || []).filter(id => id !== socket.id);
-                    if (clients.length > 0) {
-                        const newHost = clients[Math.floor(Math.random() * clients.length)];
-                        roomHosts.set(room, newHost);
-                        io.to(newHost).emit('host-migrated');
+                    const stillHasHost = clients.some(id => userSockets.get(id) === userId);
+                    
+                    if (!stillHasHost) {
                         socket.to(room).emit('user-disconnected', socket.id);
-                        
-                        const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === roomHosts.get(room) }));
+                        const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: userSockets.get(id) === userId }));
                         io.to(room).emit('room-user-list', usersData);
-                    } else {
-                        roomHosts.delete(room);
-                        roomConfig.delete(room);
-                        roomMedia.delete(room);
-                        io.emit('public-rooms-updated');
+                        
+                        // 3-second grace period for host to reconnect
+                        setTimeout(() => {
+                            const currentRoom = io.sockets.adapter.rooms.get(room);
+                            if (currentRoom && roomHosts.get(room) === userId) {
+                                const currentClients = Array.from(currentRoom);
+                                const hostReturned = currentClients.some(id => userSockets.get(id) === userId);
+                                
+                                if (!hostReturned && currentClients.length > 0) {
+                                    const newHostSocket = currentClients[Math.floor(Math.random() * currentClients.length)];
+                                    const newHostUserId = userSockets.get(newHostSocket);
+                                    roomHosts.set(room, newHostUserId);
+                                    io.to(newHostSocket).emit('host-migrated');
+                                    
+                                    const updatedUsersData = currentClients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: userSockets.get(id) === newHostUserId }));
+                                    io.to(room).emit('room-user-list', updatedUsersData);
+                                } else if (!hostReturned && currentClients.length === 0) {
+                                    roomHosts.delete(room);
+                                    roomConfig.delete(room);
+                                    roomMedia.delete(room);
+                                    roomYtState.delete(room);
+                                    roomViewerControl.delete(room);
+                                    io.emit('public-rooms-updated');
+                                }
+                            }
+                        }, 3000);
                     }
                 } else {
                     socket.to(room).emit('user-disconnected', socket.id);
                     const clients = Array.from(io.sockets.adapter.rooms.get(room) || []).filter(id => id !== socket.id);
-                    const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === roomHosts.get(room) }));
+                    const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: userSockets.get(id) === roomHosts.get(room) }));
                     io.to(room).emit('room-user-list', usersData);
                     io.emit('public-rooms-updated');
                 }
@@ -180,13 +224,14 @@ io.on('connection', (socket) => {
     socket.on('pass-host', (data) => {
         const roomId = data.roomId;
         const targetId = data.targetId;
-        if (roomHosts.get(roomId) === socket.id) {
-            roomHosts.set(roomId, targetId);
+        if (roomHosts.get(roomId) === userSockets.get(socket.id)) {
+            const targetUserId = userSockets.get(targetId);
+            roomHosts.set(roomId, targetUserId);
             io.to(targetId).emit('host-migrated');
             socket.emit('host-demoted');
             const room = io.sockets.adapter.rooms.get(roomId);
             const usersInRoom = room ? Array.from(room) : [];
-            const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: id === targetId }));
+            const usersData = usersInRoom.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: userSockets.get(id) === targetUserId }));
             io.to(roomId).emit('room-user-list', usersData);
         }
     });
@@ -223,6 +268,23 @@ app.get('/api/rooms', (req, res) => {
         }
     }
     res.json(publicRooms);
+});
+
+const ytSearch = require('yt-search');
+
+app.get('/api/yt/search', async (req, res) => {
+    try {
+        const query = req.query.q;
+        if (!query) {
+            return res.status(400).json({ error: 'Missing query parameter' });
+        }
+        const r = await ytSearch(query);
+        const videos = r.videos.slice(0, 20); // Top 20 results
+        res.json({ results: videos });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Failed to search YouTube' });
+    }
 });
 
 // Serve frontend in production
