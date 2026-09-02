@@ -24,7 +24,7 @@ function App() {
   const [createPassword, setCreatePassword] = useState('');
   const [isCreatingPublic, setIsCreatingPublic] = useState(true);
 
-  const [joinPromptTarget, setJoinPromptTarget] = useState<string | null>(null);
+  const [joinPromptTarget, setJoinPromptTarget] = useState<{ id: string, isPublic: boolean } | null>(null);
   const [joinPromptPassword, setJoinPromptPassword] = useState('');
 
   const [nickname, setNickname] = useState(() => localStorage.getItem('watch2gether_nickname') || '');
@@ -60,10 +60,11 @@ function App() {
         .then(res => res.json())
         .then(data => {
           if (data.exists || savedIsOwner) {
+            const actualIsPublic = data.exists ? data.isPublic : (isPublic ?? true);
             // If we are the owner, we can recreate the room even if it was destroyed during refresh
             setRoomId(id);
             setIsOwner(savedIsOwner);
-            setRoomConfig({ isPublic: isPublic ?? true, password: password ?? '' });
+            setRoomConfig({ isPublic: actualIsPublic, password: password ?? '' });
             setInRoom(true);
           } else {
             sessionStorage.removeItem('watch2gether_room');
@@ -127,12 +128,12 @@ function App() {
           setError('');
 
           if (data.requiresPassword && !isPublicClick) {
-            setJoinPromptTarget(targetId);
+            setJoinPromptTarget({ id: targetId, isPublic: data.isPublic });
             setJoinPromptPassword('');
             return;
           }
 
-          finalizeJoinRoom(targetId, '');
+          finalizeJoinRoom(targetId, '', data.isPublic);
         } else {
           setError('Room does not exist. Please check the Room ID.');
         }
@@ -142,16 +143,17 @@ function App() {
     }
   };
 
-  const finalizeJoinRoom = (targetId: string, attemptedPassword: string) => {
+  const finalizeJoinRoom = (targetId: string, attemptedPassword: string, isPublic: boolean) => {
     sessionStorage.setItem('watch2gether_room', JSON.stringify({
       id: targetId,
       isOwner: false,
+      isPublic: isPublic,
       password: attemptedPassword
     }));
 
     setRoomId(targetId);
     setIsOwner(false);
-    setRoomConfig({ isPublic: false, password: attemptedPassword });
+    setRoomConfig({ isPublic: isPublic, password: attemptedPassword });
     setInRoom(true);
     setJoinPromptTarget(null);
   };
@@ -313,7 +315,7 @@ function App() {
 
       {joinPromptTarget && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
-          <form className="glass" style={{ padding: '2rem', borderRadius: '1rem', width: '100%', maxWidth: '400px' }} onSubmit={(e) => { e.preventDefault(); finalizeJoinRoom(joinPromptTarget, joinPromptPassword); }}>
+          <form className="glass" style={{ padding: '2rem', borderRadius: '1rem', width: '100%', maxWidth: '400px' }} onSubmit={(e) => { e.preventDefault(); finalizeJoinRoom(joinPromptTarget.id, joinPromptPassword, joinPromptTarget.isPublic); }}>
             <h2 style={{ marginTop: 0 }}>Room Password Required</h2>
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>Enter Password</label>

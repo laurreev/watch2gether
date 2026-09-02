@@ -184,7 +184,7 @@ io.on('connection', (socket) => {
                         const usersData = clients.map(id => ({ id, nickname: io.sockets.sockets.get(id)?.nickname || 'Unknown', isHost: userSockets.get(id) === userId }));
                         io.to(room).emit('room-user-list', usersData);
                         
-                        // 3-second grace period for host to reconnect
+                        // 15-second grace period for host to reconnect
                         setTimeout(() => {
                             const currentRoom = io.sockets.adapter.rooms.get(room);
                             if (currentRoom && roomHosts.get(room) === userId) {
@@ -208,7 +208,7 @@ io.on('connection', (socket) => {
                                     io.emit('public-rooms-updated');
                                 }
                             }
-                        }, 3000);
+                        }, 15000);
                     }
                 } else {
                     socket.to(room).emit('user-disconnected', socket.id);
