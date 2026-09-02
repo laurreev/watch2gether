@@ -59,7 +59,8 @@ function App() {
       fetch(`${socketUrl}/api/room/${id}`)
         .then(res => res.json())
         .then(data => {
-          if (data.exists) {
+          if (data.exists || savedIsOwner) {
+            // If we are the owner, we can recreate the room even if it was destroyed during refresh
             setRoomId(id);
             setIsOwner(savedIsOwner);
             setRoomConfig({ isPublic: isPublic ?? true, password: password ?? '' });

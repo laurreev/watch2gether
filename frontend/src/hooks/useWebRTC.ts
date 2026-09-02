@@ -219,17 +219,22 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
 
   const startScreenShare = async (resolution: Resolution = 'max', showCursor: boolean = true) => {
     try {
-      const stream = await navigator.mediaDevices.getDisplayMedia({
+      const displayMediaOptions: any = {
         video: {
           ...resolutionSettings[resolution],
-          cursor: showCursor ? 'always' : 'never'
+          cursor: showCursor ? 'always' : 'never',
+          displaySurface: 'browser'
         },
         audio: {
           echoCancellation: false,
           noiseSuppression: false,
           autoGainControl: false,
-        }
-      });
+        },
+        preferCurrentTab: true,
+        systemAudio: 'include'
+      };
+      
+      const stream = await navigator.mediaDevices.getDisplayMedia(displayMediaOptions);
       
       const videoTrack = stream.getVideoTracks()[0];
       if (videoTrack) {

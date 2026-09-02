@@ -219,6 +219,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
       setNotification("You are no longer the Host.");
       setTimeout(() => setNotification(null), 5000);
       onHostMigrate(false);
+      handleStopMedia();
+      stopScreenShare();
     };
 
     socket.on('chat-message', handleChat);
@@ -231,6 +233,47 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
        socket.off('host-demoted', handleDemote);
     };
   }, [socket, onHostMigrate]);
+
+  const [isIdle, setIsIdle] = useState(false);
+  const idleTimeoutRef = useRef<any>(null);
+
+  useEffect(() => {
+    let handleMouseMove: (() => void) | null = null;
+    
+    if (isTheaterMode) {
+      document.body.classList.add('theater-active');
+
+      handleMouseMove = () => {
+        setIsIdle(false);
+        if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+        idleTimeoutRef.current = setTimeout(() => setIsIdle(true), 2500);
+      };
+
+      window.addEventListener('mousemove', handleMouseMove);
+      handleMouseMove(); // init
+    } else {
+      document.body.classList.remove('theater-active');
+    }
+    
+    const handleFullscreenChange = () => {
+      // If the user presses Escape, the browser exits fullscreen.
+      // We should detect this and exit Theater mode automatically.
+      if (!document.fullscreenElement && isTheaterMode) {
+        setIsTheaterMode(false);
+      }
+    };
+    
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+
+    return () => {
+      document.body.classList.remove('theater-active');
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      if (handleMouseMove) {
+         window.removeEventListener('mousemove', handleMouseMove);
+      }
+      if (idleTimeoutRef.current) clearTimeout(idleTimeoutRef.current);
+    };
+  }, [isTheaterMode]);
 
   const sendChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
@@ -401,58 +444,54 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
           </div>
           
           <div className="room-controls">
-            {isOwner && (
-              !localStream ? (
-                <div className="share-controls">
-                  {!playingMedia && (
-                    <>
-                      <label className="cursor-toggle">
-                        <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
-                        Show Cursor
-                      </label>
-                      <select 
-                        className="input-field select-field" 
-                        value={resolution} 
-                        onChange={(e) => setResolution(e.target.value as Resolution)}
-                      >
-                        <option value="720p">720p</option>
-                        <option value="1080p">1080p</option>
-                        <option value="1440p">1440p</option>
-                        <option value="max">Max Quality (1440p)</option>
-                      </select>
-                      <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
-                        Start Sharing
-                      </button>
-                    </>
-                  )}
-                  <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector('local')}>
-                    Find something to watch
-                  </button>
-                  <button className="btn btn-primary" onClick={() => setShowMediaSelector('share')}>
-                    Pick and Share
-                  </button>
-                </div>
-              ) : (
-                <button className="btn btn-danger" onClick={stopScreenShare}>
-                  Stop Sharing
+            {isOwner && (!localStream && !playingMedia) && (
+              <div className="share-controls">
+                <label className="cursor-toggle">
+                  <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
+                  Show Cursor
+                </label>
+                <select 
+                  className="input-field select-field" 
+                  value={resolution} 
+                  onChange={(e) => setResolution(e.target.value as Resolution)}
+                >
+                  <option value="720p">720p</option>
+                  <option value="1080p">1080p</option>
+                  <option value="1440p">1440p</option>
+                  <option value="max">Max Quality (1440p)</option>
+                </select>
+                <button className="btn btn-primary" onClick={() => startScreenShare(resolution, showCursor)}>
+                  Start Sharing
                 </button>
-              )
+                <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector('local')}>
+                  Find something to watch
+                </button>
+                <button className="btn btn-primary" onClick={() => setShowMediaSelector('share')} style={{ display: 'flex', flexDirection: 'column', gap: '0.2rem', alignItems: 'center', padding: '0.5rem 1rem' }}>
+                  <span>Pick and Share</span>
+                  <span style={{ fontSize: '0.65rem', opacity: 0.8, fontWeight: 'normal', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Experimental. For PC only</span>
+                </button>
+              </div>
             )}
-            {isOwner && playingMedia && (
+            {isOwner && (localStream || playingMedia) && (
                <div style={{ display: 'flex', gap: '0.5rem' }}>
-                 <select 
-                   className="input-field select-field"
-                   value={activeServer}
-                   onChange={(e) => handleServerChange(e.target.value)}
-                   disabled={isExtractingServer}
-                 >
-                    <option value="1">Vidsrc ME</option>
-                    <option value="2">2Embed</option>
-                    <option value="3">Multiembed</option>
-                    <option value="4">Vidlink (Anime/HD)</option>
-                 </select>
-                 <button className="btn btn-danger" onClick={handleStopMedia}>
-                   Stop Playing
+                 {playingMedia && (
+                   <select 
+                     className="input-field select-field"
+                     value={activeServer}
+                     onChange={(e) => handleServerChange(e.target.value)}
+                     disabled={isExtractingServer}
+                   >
+                      <option value="1">Vidsrc ME</option>
+                      <option value="2">2Embed</option>
+                      <option value="3">Multiembed</option>
+                      <option value="4">Vidlink (Anime/HD)</option>
+                   </select>
+                 )}
+                 <button className="btn btn-danger" onClick={() => {
+                   if (localStream) stopScreenShare();
+                   if (playingMedia) handleStopMedia();
+                 }}>
+                   {localStream && playingMedia ? 'Stop Session' : localStream ? 'Stop Sharing' : 'Stop Playing'}
                  </button>
                </div>
             )}
@@ -480,13 +519,34 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
       )}
 
       {isTheaterMode && (
-         <button 
-           className="btn btn-primary" 
-           onClick={() => setIsTheaterMode(false)}
-           style={{ position: 'fixed', top: '1rem', right: '1rem', zIndex: 1000, boxShadow: '0 4px 14px rgba(0,0,0,0.5)' }}
-         >
-           Exit Theater Mode
-         </button>
+         <>
+           <style>{`
+             .header { display: none !important; }
+             .app-container { height: 100vh !important; overflow: hidden !important; }
+           `}</style>
+           <div 
+             style={{ 
+               position: 'fixed', top: 0, right: 0, width: '250px', height: '150px', zIndex: 1000,
+               display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', padding: '1rem'
+             }}
+             onMouseEnter={() => setIsIdle(false)}
+             onMouseMove={() => setIsIdle(false)}
+             onMouseLeave={() => setIsIdle(true)}
+           >
+             <button 
+               className="btn btn-primary" 
+               onClick={() => setIsTheaterMode(false)}
+               style={{ 
+                 boxShadow: '0 4px 14px rgba(0,0,0,0.5)',
+                 opacity: isIdle ? 0 : 1,
+                 transition: 'opacity 0.3s ease',
+                 pointerEvents: isIdle ? 'none' : 'auto'
+               }}
+             >
+               Exit Theater Mode
+             </button>
+           </div>
+         </>
       )}
 
       {notification && (
@@ -503,9 +563,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
 
       <div className="room-content-wrapper">
         <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', overflowY: 'auto', paddingRight: isTheaterMode ? '0' : '0.5rem' }}>
-        {(localStream || remoteStreams.size > 0 || !playingMedia) && (
+        {((localStream && !playingMedia) || remoteStreams.size > 0 || !playingMedia) && (
           <div className="video-grid" style={{ marginBottom: isTheaterMode ? '0' : '1rem' }}>
-        {localStream && (
+        {localStream && !playingMedia && (
            <VideoStream stream={localStream} label={`${localStorage.getItem('watch2gether_nickname') || 'You'} (Sharing)`} isLocal={true} />
         )}
         
@@ -524,7 +584,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
         )}
 
         {playingMedia && (
-           <div className={`glass ${isTheaterMode ? 'theater-wrapper' : 'playing-media-wrapper'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', order: isTheaterMode ? 0 : 1, borderRadius: isTheaterMode ? '0' : '1rem', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', background: '#000', border: isTheaterMode ? 'none' : '1px solid var(--border)', overflow: 'hidden' }}>
+           <div className={`glass ${isTheaterMode ? 'theater-wrapper' : 'playing-media-wrapper'}`} style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', order: isTheaterMode ? 0 : 1, borderRadius: isTheaterMode ? '0' : '1rem', flexDirection: 'column', gap: isTheaterMode ? '0' : '1rem', background: '#000', border: isTheaterMode ? 'none' : '1px solid var(--border)' }}>
                 <div style={{ width: '100%', height: '100%', flex: 1, display: 'flex', flexDirection: 'column' }}>
                  {!isTheaterMode && (
                    <div style={{ padding: '1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(0,0,0,0.5)' }}>
@@ -539,7 +599,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                        Loading new server stream...
                      </div>
                   ) : playingMedia.url ? (
-                     <div id="media-player-container" className={isTheaterMode ? 'theater-player' : 'media-player-container'} style={{ width: '100%', flex: 1, background: '#000', position: 'relative' }}>
+                     <div id="media-player-container" className={isTheaterMode ? 'theater-player' : 'media-player-container'} style={{ width: '100%', flex: 1, background: '#000', position: 'relative', transform: 'translateZ(0)' }}>
                        {playingMedia.url.includes('.mp4') || playingMedia.url.includes('.m3u8') ? (
                          <>
                            {/* @ts-ignore react-player types issue */}

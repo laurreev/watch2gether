@@ -57,6 +57,15 @@ body {
   border-bottom: 1px solid var(--border);
 }
 
+body.theater-active .header {
+  display: none !important;
+}
+
+body.theater-active .app-container {
+  height: 100vh;
+  overflow: hidden;
+}
+
 .nickname-display {
   color: var(--text-muted);
   display: flex;
