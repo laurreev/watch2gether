@@ -271,6 +271,7 @@ app.get('/api/rooms', (req, res) => {
 });
 
 const ytSearch = require('yt-search');
+const https = require('https');
 
 app.get('/api/yt/search', async (req, res) => {
     try {
@@ -282,24 +283,40 @@ app.get('/api/yt/search', async (req, res) => {
         const apiKey = process.env.YOUTUBE_API_KEY;
         
         if (apiKey) {
-            // Use official API if key is present
-            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`);
+            const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`;
             
-            if (!response.ok) {
-                const errorText = await response.text();
-                throw new Error(`YouTube API Error: ${response.status} - ${errorText}`);
-            }
-            
-            const data = await response.json();
-            const videos = data.items.map(item => ({
-                videoId: item.id.videoId,
-                title: item.snippet.title,
-                thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
-                author: { name: item.snippet.channelTitle },
-                timestamp: 'Video' // The search API doesn't return video duration
-            }));
-            
-            return res.json({ results: videos });
+            https.get(url, (response) => {
+                let data = '';
+                response.on('data', (chunk) => { data += chunk; });
+                response.on('end', () => {
+                    if (response.statusCode !== 200) {
+                        console.error('YouTube API Error Response:', data);
+                        return res.status(500).json({ error: 'YouTube API returned an error. Check Render server logs for details.' });
+                    }
+                    try {
+                        const parsedData = JSON.parse(data);
+                        if (!parsedData.items) {
+                            console.error('YouTube API no items in response:', parsedData);
+                            return res.status(500).json({ error: 'Invalid response from YouTube API' });
+                        }
+                        const videos = parsedData.items.map(item => ({
+                            videoId: item.id.videoId,
+                            title: item.snippet.title,
+                            thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
+                            author: { name: item.snippet.channelTitle },
+                            timestamp: 'Video'
+                        }));
+                        res.json({ results: videos });
+                    } catch (parseErr) {
+                        console.error('YouTube API Parse Error:', parseErr);
+                        res.status(500).json({ error: 'Failed to parse YouTube API response' });
+                    }
+                });
+            }).on('error', (err) => {
+                console.error('HTTPS Get Error:', err.message);
+                res.status(500).json({ error: 'Network error reaching YouTube API' });
+            });
+
         } else {
             // Fallback for local development if no API key is set yet
             const r = await ytSearch(query);
@@ -307,8 +324,8 @@ app.get('/api/yt/search', async (req, res) => {
             return res.json({ results: videos });
         }
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: 'Failed to search YouTube' });
+        console.error('Search Route Catch Error:', err);
+        res.status(500).json({ error: 'Failed to search YouTube', details: err.message });
     }
 });
 
