@@ -51,7 +51,12 @@ const YoutubeSelector: React.FC<YoutubeSelectorProps> = ({ onPlay, onClose }) =>
     setIsLoading(true);
     try {
       const response = await fetch(`${API_BASE_URL}/api/yt/search?q=${encodeURIComponent(actualQuery)}`);
-      if (!response.ok) throw new Error('Search failed');
+      
+      if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Search failed (server error)');
+      }
+      
       const data = await response.json();
       
       const mappedResults: YouTubeItem[] = data.results.map((v: any) => ({
@@ -64,9 +69,9 @@ const YoutubeSelector: React.FC<YoutubeSelectorProps> = ({ onPlay, onClose }) =>
          timestamp: v.timestamp || '0:00'
       }));
       setResults(mappedResults);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      showNotification("Failed to search YouTube");
+      showNotification(error.message || "Failed to search YouTube");
     } finally {
       setIsLoading(false);
     }
