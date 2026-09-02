@@ -278,9 +278,34 @@ app.get('/api/yt/search', async (req, res) => {
         if (!query) {
             return res.status(400).json({ error: 'Missing query parameter' });
         }
-        const r = await ytSearch(query);
-        const videos = r.videos.slice(0, 20); // Top 20 results
-        res.json({ results: videos });
+
+        const apiKey = process.env.YOUTUBE_API_KEY;
+        
+        if (apiKey) {
+            // Use official API if key is present
+            const response = await fetch(`https://www.googleapis.com/youtube/v3/search?part=snippet&maxResults=20&q=${encodeURIComponent(query)}&type=video&key=${apiKey}`);
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                throw new Error(`YouTube API Error: ${response.status} - ${errorText}`);
+            }
+            
+            const data = await response.json();
+            const videos = data.items.map(item => ({
+                videoId: item.id.videoId,
+                title: item.snippet.title,
+                thumbnail: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.default?.url,
+                author: { name: item.snippet.channelTitle },
+                timestamp: 'Video' // The search API doesn't return video duration
+            }));
+            
+            return res.json({ results: videos });
+        } else {
+            // Fallback for local development if no API key is set yet
+            const r = await ytSearch(query);
+            const videos = r.videos.slice(0, 20); // Top 20 results
+            return res.json({ results: videos });
+        }
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Failed to search YouTube' });
