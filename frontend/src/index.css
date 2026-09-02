@@ -312,6 +312,8 @@ body.theater-active .app-container {
 .room-controls {
   display: flex;
   gap: 1rem;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .share-controls {
