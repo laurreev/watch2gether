@@ -187,7 +187,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, usersList, socket } = useWebRTC(roomId, isOwner, roomConfig, onLeave);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
-  const [showMediaSelector, setShowMediaSelector] = useState(false);
+  const [showMediaSelector, setShowMediaSelector] = useState<'local' | 'share' | false>(false);
   const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string, episode?: number, season?: number} | null>(null);
   const [activeServer, setActiveServer] = useState('1');
   const [isExtractingServer, setIsExtractingServer] = useState(false);
@@ -290,9 +290,18 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const handlePlayMedia = (item: any) => {
     setPlayingMedia(item);
     setActiveServer('1'); // Reset to default when new media plays
+    const mode = showMediaSelector;
     setShowMediaSelector(false);
-    if (isOwner && socket) {
-      socket.emit('play-media', { roomId, media: { ...item, serverStr: '1' } });
+    
+    if (mode === 'share') {
+      // In Pick and Share mode, we play it locally for the host and start WebRTC screen share.
+      // We do NOT emit 'play-media', so viewers only watch via the screen share, avoiding double-audio.
+      startScreenShare(resolution, showCursor);
+    } else {
+      // Original behavior ("Find something to watch"): broadcast the media URL to everyone
+      if (isOwner && socket) {
+        socket.emit('play-media', { roomId, media: { ...item, serverStr: '1' } });
+      }
     }
   };
 
@@ -416,8 +425,11 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                       </button>
                     </>
                   )}
-                  <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector(true)}>
+                  <button className="btn btn-secondary" style={{ background: 'rgba(255,255,255,0.1)' }} onClick={() => setShowMediaSelector('local')}>
                     Find something to watch
+                  </button>
+                  <button className="btn btn-primary" onClick={() => setShowMediaSelector('share')}>
+                    Pick and Share
                   </button>
                 </div>
               ) : (
@@ -444,7 +456,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  </button>
                </div>
             )}
-            <button className="btn hide-on-mobile" style={{ background: 'var(--primary)' }} onClick={() => setIsTheaterMode(true)}>
+            <button className="btn hide-on-mobile" style={{ background: 'var(--primary)', padding: '0.3rem 0.6rem', fontSize: '0.85rem' }} onClick={() => setIsTheaterMode(true)}>
               🎭 Theater Mode
             </button>
             <a href={
@@ -456,8 +468,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  if (ua.includes('safari') && !ua.includes('chrome') || ua.includes('iphone') || ua.includes('ipad') || ua.includes('mac os')) return 'https://apps.apple.com/us/app/ublock-origin-lite/id6745342698';
                  return 'https://ublockorigin.com/';
                })()
-            } target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#8b0000', color: 'white', padding: '0.5rem 1rem', borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none' }}>
-              <span style={{ fontSize: '1.2rem' }}>🛡️</span> Install AdBlock
+            } target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#8b0000', color: 'white', padding: '0.3rem 0.6rem', borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', fontSize: '0.85rem' }}>
+              <span style={{ fontSize: '1rem' }}>🛡️</span> Install AdBlock
             </a>
             <button className="btn btn-leave" onClick={() => onLeave()}>
               Leave
