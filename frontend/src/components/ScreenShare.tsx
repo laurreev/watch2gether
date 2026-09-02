@@ -556,7 +556,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                 <button className="btn" style={{ background: '#ef4444', color: 'white' }} onClick={() => setShowYoutubeInput(true)}>
                   Watch on Youtube
                 </button>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.75rem', flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.75rem' }}>
                   <label className="cursor-toggle" style={{ margin: 0 }}>
                     <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
                     Cursor

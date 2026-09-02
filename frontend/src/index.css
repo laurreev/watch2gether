@@ -290,6 +290,8 @@ body.theater-active .app-container {
   gap: 1rem;
   padding: 1rem 2rem;
   border-radius: 1rem;
+  container-type: inline-size;
+  container-name: header;
 }
 
 .room-info {
@@ -314,6 +316,42 @@ body.theater-active .app-container {
   gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
+}
+
+@media (min-width: 769px) {
+  .room-controls {
+    gap: 0.5rem;
+    align-items: stretch;
+    flex-wrap: nowrap;
+    width: 100%;
+  }
+
+  .room-controls > * {
+    flex: 1 1 0;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+    overflow: hidden;
+    padding: 0.5rem 0.5cqw !important;
+  }
+
+  .room-controls > div {
+    flex: 3 1 0;
+  }
+
+  .room-controls .btn,
+  .room-controls a.btn,
+  .room-controls span,
+  .room-controls label,
+  .room-controls select,
+  .room-controls input {
+    font-size: clamp(0.5rem, 1.2cqw, 0.95rem);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 }
 
 .share-controls {
