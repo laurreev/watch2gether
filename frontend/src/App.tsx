@@ -15,7 +15,7 @@ function App() {
   const [isOwner, setIsOwner] = useState<boolean>(false);
   const [joinId, setJoinId] = useState<string>('');
   const [error, setError] = useState<string>('');
-  
+
   const [publicRooms, setPublicRooms] = useState<PublicRoom[]>([]);
   const socketUrl = import.meta.env.PROD ? '' : 'http://localhost:3000';
 
@@ -54,7 +54,7 @@ function App() {
     const savedRoom = sessionStorage.getItem('watch2gether_room');
     if (savedRoom) {
       const { id, isOwner: savedIsOwner, isPublic, password } = JSON.parse(savedRoom);
-      
+
       // Ping backend to check if room is still alive
       fetch(`${socketUrl}/api/room/${id}`)
         .then(res => res.json())
@@ -99,7 +99,7 @@ function App() {
   const confirmCreateRoom = (e: React.FormEvent) => {
     e.preventDefault();
     const newRoomId = Math.random().toString(36).substring(2, 9);
-    
+
     sessionStorage.setItem('watch2gether_room', JSON.stringify({
       id: newRoomId,
       isOwner: true,
@@ -117,21 +117,21 @@ function App() {
   const joinRoom = async (e?: React.FormEvent, directId?: string, isPublicClick: boolean = false) => {
     if (e) e.preventDefault();
     const targetId = directId || joinId.trim();
-    
+
     if (targetId) {
       try {
         const res = await fetch(`${socketUrl}/api/room/${targetId}`);
         const data = await res.json();
-        
+
         if (data.exists) {
           setError('');
-          
+
           if (data.requiresPassword && !isPublicClick) {
-             setJoinPromptTarget(targetId);
-             setJoinPromptPassword('');
-             return;
+            setJoinPromptTarget(targetId);
+            setJoinPromptPassword('');
+            return;
           }
-          
+
           finalizeJoinRoom(targetId, '');
         } else {
           setError('Room does not exist. Please check the Room ID.');
@@ -175,47 +175,47 @@ function App() {
           </div>
         </div>
         {nickname && !inRoom && (
-            <div className="nickname-display">
-              <span>Playing as <strong>{nickname}</strong></span>
-              <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }} onClick={() => setNickname('')}>Change</button>
-            </div>
+          <div className="nickname-display">
+            <span>Playing as <strong>{nickname}</strong></span>
+            <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }} onClick={() => setNickname('')}>Change</button>
+          </div>
         )}
       </header>
 
       {!nickname ? (
-         <main className="join-container">
-           <div className="join-card glass" style={{ maxWidth: 400, margin: '2rem auto' }}>
-             <h2 className="join-title" style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Choose a Nickname</h2>
-             <form onSubmit={(e) => { 
-                e.preventDefault(); 
-                if (tempNickname.trim()) {
-                   localStorage.setItem('watch2gether_nickname', tempNickname.trim()); 
-                   setNickname(tempNickname.trim()); 
-                }
-             }}>
-               <input 
-                  value={tempNickname} 
-                  onChange={e => setTempNickname(e.target.value)} 
-                  placeholder="Enter your nickname" 
-                  required 
-                  className="input-field" 
-                  style={{ marginBottom: '1rem' }} 
-                  autoFocus
-               />
-               <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Continue</button>
-             </form>
-           </div>
-         </main>
+        <main className="join-container">
+          <div className="join-card glass" style={{ maxWidth: 400, margin: '2rem auto' }}>
+            <h2 className="join-title" style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Choose a Nickname</h2>
+            <form onSubmit={(e) => {
+              e.preventDefault();
+              if (tempNickname.trim()) {
+                localStorage.setItem('watch2gether_nickname', tempNickname.trim());
+                setNickname(tempNickname.trim());
+              }
+            }}>
+              <input
+                value={tempNickname}
+                onChange={e => setTempNickname(e.target.value)}
+                placeholder="Enter your nickname"
+                required
+                className="input-field"
+                style={{ marginBottom: '1rem' }}
+                autoFocus
+              />
+              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Continue</button>
+            </form>
+          </div>
+        </main>
       ) : !inRoom ? (
         <main className="join-container">
           <div className="landing-grid">
             <div className="join-card glass">
-              <h1 className="join-title">High-Fidelity Screen Share</h1>
-              <p className="join-subtitle">No limits on FPS or resolution.</p>
-              
+              <h1 className="join-title">Watch Movies, TV-Shows, Anime, and many more!</h1>
+              <p className="join-subtitle">Free 24/7.</p>
+
               <div className="input-group">
                 <button className="btn btn-primary" onClick={startCreateRoom}>
-                   Create New Room
+                  Create New Room
                 </button>
               </div>
 
@@ -237,38 +237,38 @@ function App() {
             </div>
 
             <div className="public-rooms-card glass">
-               <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Public Rooms</h2>
-               {publicRooms.length === 0 ? (
-                 <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '2rem' }}>No public rooms active right now. Create one!</p>
-               ) : (
-                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-                   {publicRooms.map(room => (
-                     <div key={room.roomId} className="public-room-item" onClick={() => joinRoom(undefined, room.roomId, true)}>
-                       <div className="public-room-info">
-                         <h3>Room: {room.roomId}</h3>
-                         <p>
-                           {room.viewerCount} {room.viewerCount === 1 ? 'Viewer' : 'Viewers'}
-                           {room.media ? ` • Watching: ${room.media.title}` : ' • In Lobby'}
-                         </p>
-                       </div>
-                       <button className="btn" style={{ background: 'var(--primary)', padding: '0.4rem 1rem' }}>Join</button>
-                     </div>
-                   ))}
-                 </div>
-               )}
+              <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Public Rooms</h2>
+              {publicRooms.length === 0 ? (
+                <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '2rem' }}>No public rooms active right now. Create one!</p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+                  {publicRooms.map(room => (
+                    <div key={room.roomId} className="public-room-item" onClick={() => joinRoom(undefined, room.roomId, true)}>
+                      <div className="public-room-info">
+                        <h3>Room: {room.roomId}</h3>
+                        <p>
+                          {room.viewerCount} {room.viewerCount === 1 ? 'Viewer' : 'Viewers'}
+                          {room.media ? ` • Watching: ${room.media.title}` : ' • In Lobby'}
+                        </p>
+                      </div>
+                      <button className="btn" style={{ background: 'var(--primary)', padding: '0.4rem 1rem' }}>Join</button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         </main>
       ) : (
-        <ScreenShare 
-          roomId={roomId} 
-          isOwner={isOwner} 
-          onLeave={handleLeave} 
+        <ScreenShare
+          roomId={roomId}
+          isOwner={isOwner}
+          onLeave={handleLeave}
           onHostMigrate={(isHost: boolean) => {
-             setIsOwner(isHost);
-             const saved = JSON.parse(sessionStorage.getItem('watch2gether_room') || '{}');
-             sessionStorage.setItem('watch2gether_room', JSON.stringify({ ...saved, isOwner: isHost }));
-          }} 
+            setIsOwner(isHost);
+            const saved = JSON.parse(sessionStorage.getItem('watch2gether_room') || '{}');
+            sessionStorage.setItem('watch2gether_room', JSON.stringify({ ...saved, isOwner: isHost }));
+          }}
           roomConfig={roomConfig}
         />
       )}
@@ -279,25 +279,25 @@ function App() {
           <form className="glass" style={{ padding: '2rem', borderRadius: '1rem', width: '100%', maxWidth: '400px' }} onSubmit={confirmCreateRoom}>
             <h2 style={{ marginTop: 0 }}>Create Room</h2>
             <div style={{ marginBottom: '1rem' }}>
-               <label style={{ display: 'block', marginBottom: '0.5rem' }}>Room Visibility</label>
-               <div style={{ display: 'flex', gap: '1rem' }}>
-                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                   <input type="radio" checked={isCreatingPublic} onChange={() => setIsCreatingPublic(true)} />
-                   Public (Listed)
-                 </label>
-                 <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
-                   <input type="radio" checked={!isCreatingPublic} onChange={() => setIsCreatingPublic(false)} />
-                   Private (Requires ID/Password)
-                 </label>
-               </div>
+              <label style={{ display: 'block', marginBottom: '0.5rem' }}>Room Visibility</label>
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input type="radio" checked={isCreatingPublic} onChange={() => setIsCreatingPublic(true)} />
+                  Public (Listed)
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
+                  <input type="radio" checked={!isCreatingPublic} onChange={() => setIsCreatingPublic(false)} />
+                  Private (Requires ID/Password)
+                </label>
+              </div>
             </div>
             {!isCreatingPublic && (
               <div style={{ marginBottom: '1.5rem' }}>
                 <label style={{ display: 'block', marginBottom: '0.5rem' }}>Password (Optional)</label>
-                <input 
-                  type="text" 
-                  className="input-field" 
-                  value={createPassword} 
+                <input
+                  type="text"
+                  className="input-field"
+                  value={createPassword}
                   onChange={e => setCreatePassword(e.target.value)}
                   placeholder="Leave blank for no password"
                 />
@@ -317,10 +317,10 @@ function App() {
             <h2 style={{ marginTop: 0 }}>Room Password Required</h2>
             <div style={{ marginBottom: '1.5rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>Enter Password</label>
-              <input 
-                type="password" 
-                className="input-field" 
-                value={joinPromptPassword} 
+              <input
+                type="password"
+                className="input-field"
+                value={joinPromptPassword}
                 onChange={e => setJoinPromptPassword(e.target.value)}
                 placeholder="Password"
                 autoFocus
