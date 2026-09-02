@@ -192,6 +192,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string, episode?: number, season?: number} | null>(null);
   const [activeServer, setActiveServer] = useState('1');
   const [isExtractingServer, setIsExtractingServer] = useState(false);
+  const [showShareOptions, setShowShareOptions] = useState(false);
 
   const [isTheaterMode, setIsTheaterMode] = useState(false);
   const [isPip, setIsPip] = useState(false);
@@ -556,25 +557,42 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                 <button className="btn" style={{ background: '#ef4444', color: 'white' }} onClick={() => setShowYoutubeInput(true)}>
                   Watch on Youtube
                 </button>
-                <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center', background: 'rgba(255,255,255,0.05)', padding: '0.4rem 0.8rem', borderRadius: '0.75rem' }}>
-                  <label className="cursor-toggle" style={{ margin: 0 }}>
-                    <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
-                    Cursor
-                  </label>
-                  <select 
-                    className="input-field select-field" 
-                    value={resolution} 
-                    onChange={(e) => setResolution(e.target.value as Resolution)}
-                    style={{ padding: '0.3rem', height: 'auto', minHeight: 0 }}
-                  >
-                    <option value="720p">720p</option>
-                    <option value="1080p">1080p</option>
-                    <option value="1440p">1440p</option>
-                    <option value="max">Max</option>
-                  </select>
-                  <button className="btn btn-secondary" style={{ padding: '0.4rem 0.8rem' }} onClick={() => startScreenShare(resolution, showCursor)}>
-                    Share Screen
+                <div style={{ position: 'relative' }}>
+                  <button className="btn btn-secondary" onClick={() => setShowShareOptions(!showShareOptions)}>
+                    Share Screen ⚙️
                   </button>
+                  {showShareOptions && (
+                    <div className="glass" style={{ position: 'absolute', top: '100%', left: '50%', transform: 'translateX(-50%)', marginTop: '0.5rem', padding: '1rem', borderRadius: '0.5rem', zIndex: 50, display: 'flex', flexDirection: 'column', gap: '0.8rem', minWidth: '220px', boxShadow: '0 10px 25px rgba(0,0,0,0.5)' }}>
+                      <h4 style={{ margin: '0', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem' }}>Share Settings</h4>
+                      
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.9rem' }}>Resolution</span>
+                        <select 
+                          className="input-field select-field" 
+                          value={resolution} 
+                          onChange={(e) => setResolution(e.target.value as Resolution)}
+                          style={{ padding: '0.3rem', height: 'auto', minHeight: 0, width: '100px', fontSize: '0.85rem' }}
+                        >
+                          <option value="720p">720p</option>
+                          <option value="1080p">1080p</option>
+                          <option value="1440p">1440p</option>
+                          <option value="max">Max</option>
+                        </select>
+                      </div>
+
+                      <label className="cursor-toggle" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.9rem' }}>
+                        <input type="checkbox" checked={showCursor} onChange={(e) => setShowCursor(e.target.checked)} />
+                        Show Cursor
+                      </label>
+
+                      <button className="btn btn-primary" style={{ marginTop: '0.5rem', padding: '0.5rem' }} onClick={() => {
+                        setShowShareOptions(false);
+                        startScreenShare(resolution, showCursor);
+                      }}>
+                        Start Sharing
+                      </button>
+                    </div>
+                  )}
                 </div>
               </>
             )}

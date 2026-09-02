@@ -337,9 +337,6 @@ body.theater-active .app-container {
     padding: 0.5rem 0.5cqw !important;
   }
 
-  .room-controls > div {
-    flex: 3 1 0;
-  }
 
   .room-controls .btn,
   .room-controls a.btn,
