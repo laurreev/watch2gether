@@ -558,7 +558,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                   Watch on Youtube
                 </button>
                 <div style={{ position: 'relative' }}>
-                  <button className="btn btn-secondary" onClick={() => setShowShareOptions(!showShareOptions)}>
+                  <button className="btn btn-secondary" style={{ height: '100%', width: '100%' }} onClick={() => setShowShareOptions(!showShareOptions)}>
                     Share Screen ⚙️
                   </button>
                   {showShareOptions && (
