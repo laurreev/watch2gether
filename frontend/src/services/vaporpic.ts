@@ -14,6 +14,8 @@ export interface VaporpicMediaItem {
   originalUrl?: string;
   episode?: number;
   season?: number;
+  overview?: string;
+  vote_average?: number;
 }
 
 const genreMap: Record<string, number[]> = {
@@ -39,7 +41,7 @@ const genreMap: Record<string, number[]> = {
   'western': [37],
 };
 
-export const searchVaporpic = async (query: string, type: string, genre?: string, year?: string, page: number = 1, signal?: AbortSignal): Promise<VaporpicSearchResponse> => {
+export const searchVaporpic = async (query: string, type: string, genre?: string, year?: string, page: number = 1, signal?: AbortSignal, rating?: string): Promise<VaporpicSearchResponse> => {
   try {
     if (!TMDB_API_KEY) {
       console.error("Missing TMDB API Key. Please add VITE_TMDB_API_KEY to your .env file.");
@@ -62,7 +64,8 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
             if (genreIds) url += `&with_genres=${genreIds.join('|')}`;
          }
          if (year) url += `&first_air_date_year=${year}`;
-      } else if (genre || year) {
+         if (rating) url += `&vote_average.gte=${rating}`;
+      } else if (genre || year || rating) {
          // Use discover endpoint if filters are applied
          const discType = searchType === 'multi' ? 'movie' : searchType;
          url = `https://api.themoviedb.org/3/discover/${discType}?sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
@@ -74,6 +77,7 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
             if (discType === 'movie') url += `&primary_release_year=${year}`;
             else url += `&first_air_date_year=${year}`;
          }
+         if (rating) url += `&vote_average.gte=${rating}`;
       } else {
          url = `https://api.themoviedb.org/3/trending/${searchType === 'multi' ? 'all' : searchType}/day?language=en-US&api_key=${TMDB_API_KEY}`;
       }
@@ -128,6 +132,8 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
         year: item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : undefined),
         url: item.id.toString(),
         originalUrl: item.id.toString(),
+        overview: item.overview,
+        vote_average: item.vote_average,
       };
     });
 
@@ -186,6 +192,30 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
     const tmdbId = url;
     const seasonNum = season || 1;
     
+    // Server 1: ZXCStream (Embed) (previously 6)
+    if (server === '1') {
+        if (ep !== undefined && ep !== null) {
+            return `https://embed.zxcstream.xyz/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+        }
+        return `https://embed.zxcstream.xyz/player/movie/${tmdbId}`;
+    }
+
+    // Server 2: ZXCStream (ICU) (previously 7)
+    if (server === '2') {
+        if (ep !== undefined && ep !== null) {
+            return `https://zxcstream.icu/watch/tv/${tmdbId}/${seasonNum}/${ep}`;
+        }
+        return `https://zxcstream.icu/watch/movie/${tmdbId}`;
+    }
+
+    // Server 3: Vidsrc (previously 1)
+    if (server === '3') {
+        if (ep !== undefined && ep !== null) {
+            return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
+        }
+        return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
+    }
+
     // Server 4: Vidlink (Anime/HD)
     if (server === '4') {
         if (ep !== undefined && ep !== null) {
@@ -194,26 +224,90 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
         return `https://vidlink.pro/movie/${tmdbId}`;
     }
 
-    // Server 3: Multiembed
-    if (server === '3') {
+    // Server 5: Videasy
+    if (server === '5') {
         if (ep !== undefined && ep !== null) {
-            return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${seasonNum}&e=${ep}`;
+            return `https://player.videasy.to/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
+        return `https://player.videasy.to/movie/${tmdbId}`;
     }
-    
-    // Server 2: 2Embed
-    if (server === '2') {
+
+    // Server 6: 2Embed (previously 2)
+    if (server === '6') {
         if (ep !== undefined && ep !== null) {
             return `https://www.2embed.cc/embedtv/${tmdbId}&s=${seasonNum}&e=${ep}`;
         }
         return `https://www.2embed.cc/embed/${tmdbId}`;
     }
     
-    // Server 1 (Default): Vidsrc
+    // Server 7: Multiembed (previously 3)
+    if (server === '7') {
+        if (ep !== undefined && ep !== null) {
+            return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${seasonNum}&e=${ep}`;
+        }
+        return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
+    }
+
+    // default fallback (ZXCStream)
     if (ep !== undefined && ep !== null) {
-        return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
+        return `https://embed.zxcstream.xyz/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+    }
+    return `https://embed.zxcstream.xyz/player/movie/${tmdbId}`;
+};
+
+export interface MediaDetails {
+  id: string;
+  title: string;
+  overview: string;
+  backdrop_url?: string;
+  poster_url?: string;
+  youtube_trailer_id?: string;
+  year?: string;
+  genres?: string[];
+  runtime?: number;
+  vote_average?: number;
+  type: 'movie' | 'tv';
+}
+
+export const getMediaDetailsAndTrailer = async (tmdbId: string, type: 'Movie' | 'TV Show' | 'Anime' | 'Asian' | string): Promise<MediaDetails | null> => {
+  try {
+    const tmdbType = (type === 'Movie' || type === 'movie') ? 'movie' : 'tv';
+    if (!TMDB_API_KEY) return null;
+    
+    const url = `https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=videos`;
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    
+    const data = await res.json();
+    
+    let trailerId = undefined;
+    if (data.videos && data.videos.results) {
+      // Prioritize official trailer
+      const trailer = data.videos.results.find((v: any) => v.type === 'Trailer' && v.site === 'YouTube');
+      if (trailer) {
+          trailerId = trailer.key;
+      } else {
+          // fallback to any youtube video like teaser
+          const anyVideo = data.videos.results.find((v: any) => v.site === 'YouTube');
+          if (anyVideo) trailerId = anyVideo.key;
+      }
     }
     
-    return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
+    return {
+      id: data.id.toString(),
+      title: data.title || data.name,
+      overview: data.overview,
+      backdrop_url: data.backdrop_path ? `https://image.tmdb.org/t/p/original${data.backdrop_path}` : undefined,
+      poster_url: data.poster_path ? `https://image.tmdb.org/t/p/w500${data.poster_path}` : undefined,
+      youtube_trailer_id: trailerId,
+      year: (data.release_date || data.first_air_date || '').split('-')[0],
+      genres: data.genres?.map((g: any) => g.name),
+      runtime: data.runtime || (data.episode_run_time && data.episode_run_time[0]),
+      vote_average: data.vote_average,
+      type: tmdbType
+    };
+  } catch (e) {
+    console.error(e);
+    return null;
+  }
 };

@@ -1,0 +1,239 @@
+.netflix-details {
+  min-height: 100vh;
+  width: 100%;
+  background-color: #141414;
+  color: #fff;
+  z-index: 100;
+  overflow-x: hidden;
+  position: relative;
+}
+
+.btn-back {
+  position: absolute;
+  top: 2rem;
+  left: 2rem;
+  z-index: 10;
+  background: rgba(0,0,0,0.6);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.btn-back:hover {
+  background: rgba(255,255,255,0.2);
+}
+
+.details-hero {
+  position: relative;
+  width: 100%;
+  height: 60vh;
+  min-height: 400px;
+}
+
+.details-hero-bg {
+  position: absolute;
+  top: 0; left: 0; width: 100%; height: 100%;
+  overflow: hidden;
+}
+
+.details-hero-bg img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0.5;
+}
+
+.details-hero-video {
+  width: 100vw;
+  height: 56.25vw; /* 16:9 aspect ratio */
+  min-height: 100%;
+  min-width: 177.77vh; /* 16:9 aspect ratio */
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(1.3);
+  pointer-events: none; /* Prevent clicking YouTube links/watermarks */
+}
+
+.details-vignette-bottom {
+  position: absolute;
+  bottom: 0; left: 0; width: 100%; height: 150px;
+  background: linear-gradient(to top, #141414 0%, transparent 100%);
+}
+
+.details-hero-content {
+  position: absolute;
+  bottom: 2rem;
+  left: 4%;
+  width: 50%;
+  z-index: 2;
+}
+
+.details-title {
+  font-size: 3vw;
+  font-weight: 800;
+  margin-bottom: 0.5rem;
+  text-shadow: 2px 2px 4px rgba(0,0,0,0.7);
+}
+
+.details-meta {
+  display: flex;
+  gap: 1rem;
+  font-size: 1vw;
+  margin-bottom: 0.5rem;
+  color: #e5e5e5;
+}
+
+.details-genres {
+  font-size: 0.9vw;
+  color: #a3a3a3;
+  margin-bottom: 1rem;
+}
+
+.details-overview {
+  font-size: 1.1vw;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+  text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+}
+
+.details-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+.btn-zxc {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.6rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  border-radius: 4px;
+  cursor: pointer;
+  border: none;
+  transition: all 0.2s;
+}
+
+.btn-play {
+  background-color: #fff;
+  color: #000;
+}
+
+.btn-play:hover {
+  background-color: rgba(255, 255, 255, 0.8);
+}
+
+.btn-add {
+  background-color: rgba(40, 40, 40, 0.6);
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.1);
+}
+
+.btn-add:hover {
+  background-color: rgba(60, 60, 60, 0.8);
+}
+
+.details-episodes-section {
+  padding: 2rem 4%;
+}
+
+.episodes-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1.5rem;
+}
+
+.season-select {
+  background: #333;
+  color: #fff;
+  border: 1px solid #555;
+  padding: 0.5rem;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+.episodes-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.episode-card {
+  background: #2a2a2a;
+  border-radius: 4px;
+  padding: 1rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.episode-card:hover {
+  background: #3a3a3a;
+}
+
+.episode-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.ep-num {
+  font-size: 0.9rem;
+  color: #a3a3a3;
+}
+
+.ep-title {
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.episode-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.btn-ep {
+  background: #444;
+  border: none;
+  color: #fff;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+}
+.btn-ep.play:hover { background: #fff; color: #000; }
+.btn-ep.room:hover { background: #3b82f6; }
+.btn-ep.room-sync:hover { background: #ef4444; }
+
+@media (max-width: 768px) {
+  .details-hero-content {
+    width: 90%;
+  }
+  .details-title { font-size: 6vw; }
+  .details-meta, .details-genres { font-size: 3vw; }
+  .details-overview { font-size: 3.5vw; }
+  .details-actions {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 768px) {
+  .details-container {
+    padding-bottom: 80px; /* space for bottom nav */
+  }
+}
+
+.details-hero.movie-hero {
+  height: 100vh;
+}

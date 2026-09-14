@@ -1,6 +1,12 @@
 import { useState, useEffect } from 'react';
 import { io } from 'socket.io-client';
-import ScreenShare from './components/ScreenShare.tsx';
+import ScreenShare from './components/ScreenShare';
+import SoloPlayer from './components/SoloPlayer';
+import Sidebar from './components/Sidebar';
+import type { TabType } from './components/Sidebar';
+import NetflixHome from './components/NetflixHome';
+import NetflixDetails from './components/NetflixDetails';
+import type { MediaItem } from './components/NetflixHome';
 import './index.css';
 
 interface PublicRoom {
@@ -23,6 +29,13 @@ function App() {
   const [createPromptVisible, setCreatePromptVisible] = useState(false);
   const [createPassword, setCreatePassword] = useState('');
   const [isCreatingPublic, setIsCreatingPublic] = useState(true);
+
+
+  const [view, setView] = useState<'home' | 'details' | 'player' | 'rooms' | 'solo'>('home');
+  const [activeTab, setActiveTab] = useState<TabType>('home');
+  const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [localPlayEp, setLocalPlayEp] = useState<number | undefined>(undefined);
+  const [localPlaySeason, setLocalPlaySeason] = useState<number | undefined>(undefined);
 
   const [joinPromptTarget, setJoinPromptTarget] = useState<{ id: string, isPublic: boolean } | null>(null);
   const [joinPromptPassword, setJoinPromptPassword] = useState('');
@@ -91,9 +104,29 @@ function App() {
     return () => clearInterval(interval);
   }, [inRoom]);
 
-  const startCreateRoom = () => {
-    setIsCreatingPublic(true);
-    setCreatePassword('');
+  const handleLeave = (errorMsg?: string) => {
+    setInRoom(false);
+    setRoomId('');
+    setView('home');
+    sessionStorage.removeItem('watch2gether_room');
+    if (typeof errorMsg === 'string') {
+      setError(errorMsg);
+    }
+  };
+
+  const handlePlayLocal = (media: MediaItem, episode?: number, season?: number) => {
+    setSelectedMedia(media);
+    setLocalPlayEp(episode);
+    setLocalPlaySeason(season);
+    setRoomId('');
+    setInRoom(false);
+    setView('solo');
+  };
+
+  const handleCreateRoom = (media: MediaItem, _isSynced: boolean, episode?: number, season?: number) => {
+    setSelectedMedia(media);
+    setLocalPlayEp(episode);
+    setLocalPlaySeason(season);
     setCreatePromptVisible(true);
   };
 
@@ -112,6 +145,7 @@ function App() {
     setIsOwner(true);
     setRoomConfig({ isPublic: isCreatingPublic, password: createPassword });
     setInRoom(true);
+    setView('player');
     setCreatePromptVisible(false);
   };
 
@@ -155,36 +189,29 @@ function App() {
     setIsOwner(false);
     setRoomConfig({ isPublic: isPublic, password: attemptedPassword });
     setInRoom(true);
+    setView('player');
     setJoinPromptTarget(null);
-  };
-
-  const handleLeave = (errorMsg?: string) => {
-    setInRoom(false);
-    sessionStorage.removeItem('watch2gether_room');
-    if (typeof errorMsg === 'string') {
-      setError(errorMsg);
-    }
   };
 
   return (
     <div className="app-container">
-      <header className="header glass">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
-          <div className="logo">Watch2Gether</div>
-          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.5rem', fontWeight: 500 }}>
-            <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#22c55e', display: 'inline-block', boxShadow: '0 0 8px #22c55e' }}></span>
-            {activeUsers} Active Users
-          </div>
-        </div>
-        {nickname && !inRoom && (
-          <div className="nickname-display">
-            <span>Playing as <strong>{nickname}</strong></span>
-            <button className="btn btn-secondary" style={{ padding: '0.2rem 0.5rem', fontSize: '0.8rem' }} onClick={() => setNickname('')}>Change</button>
-          </div>
-        )}
-      </header>
+      {nickname && view !== 'player' && view !== 'solo' && (
+        <Sidebar 
+          activeTab={view === 'rooms' ? ('rooms' as any) : activeTab}
+          onTabChange={(tab) => {
+            setActiveTab(tab);
+            setView('home');
+          }}
+          activeUsers={activeUsers}
+          nickname={nickname}
+          onOpenRooms={() => setView('rooms')}
+        />
+      )}
 
-      {!nickname ? (
+      <div 
+        className={`main-content ${nickname && view !== 'player' && view !== 'solo' ? 'with-sidebar' : ''}`}
+      >
+        {!nickname ? (
         <main className="join-container">
           <div className="join-card glass" style={{ maxWidth: 400, margin: '2rem auto' }}>
             <h2 className="join-title" style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Choose a Nickname</h2>
@@ -204,25 +231,54 @@ function App() {
                 style={{ marginBottom: '1rem' }}
                 autoFocus
               />
-              <button type="submit" className="btn btn-primary" style={{ width: '100%' }}>Continue</button>
+              <button type="submit" className="btn btn-primary" style={{ width: '100%', background: '#e50914' }}>Continue</button>
             </form>
           </div>
         </main>
-      ) : !inRoom ? (
-        <main className="join-container">
+      ) : view === 'home' ? (
+        <NetflixHome 
+          activeTab={activeTab}
+          onWatch={(media) => {
+            setSelectedMedia(media);
+            setView('details');
+          }} 
+        />
+      ) : view === 'details' && selectedMedia ? (
+        <NetflixDetails 
+          media={selectedMedia} 
+          onBack={() => setView('home')} 
+          onPlayLocal={handlePlayLocal}
+          onCreateRoom={handleCreateRoom}
+        />
+      ) : view === 'player' ? (
+        <ScreenShare
+          roomId={roomId}
+          isOwner={isOwner}
+          onLeave={handleLeave}
+          onHostMigrate={(isHost: boolean) => {
+            setIsOwner(isHost);
+            const saved = JSON.parse(sessionStorage.getItem('watch2gether_room') || '{}');
+            sessionStorage.setItem('watch2gether_room', JSON.stringify({ ...saved, isOwner: isHost }));
+          }}
+          roomConfig={roomConfig}
+          initialMedia={selectedMedia || undefined}
+          initialEpisode={localPlayEp}
+          initialSeason={localPlaySeason}
+        />
+      ) : view === 'solo' && selectedMedia ? (
+        <SoloPlayer 
+          media={selectedMedia}
+          episode={localPlayEp}
+          season={localPlaySeason}
+          onBack={() => setView('details')}
+        />
+      ) : view === 'rooms' ? (
+        <main className="join-container" style={{ paddingTop: '80px' }}>
           <div className="landing-grid">
             <div className="join-card glass">
-              <h1 className="join-title">Watch Movies, TV-Shows, Anime, and many more!</h1>
-              <p className="join-subtitle">Free 24/7.</p>
-
-              <div className="input-group">
-                <button className="btn btn-primary" onClick={startCreateRoom}>
-                  Create New Room
-                </button>
-              </div>
-
-              <div style={{ margin: '2rem 0', color: 'var(--text-muted)' }}>— or —</div>
-
+              <button className="btn btn-secondary" onClick={() => setView('home')} style={{ marginBottom: '1rem' }}>← Back to Home</button>
+              <h2 className="join-title">Join a Room</h2>
+              
               <form onSubmit={joinRoom} className="input-group">
                 <input
                   type="text"
@@ -231,8 +287,8 @@ function App() {
                   value={joinId}
                   onChange={(e) => setJoinId(e.target.value)}
                 />
-                <button type="submit" className="btn btn-primary" style={{ background: 'rgba(255,255,255,0.1)' }}>
-                  Join Private Room
+                <button type="submit" className="btn btn-primary" style={{ background: '#e50914' }}>
+                  Join Room
                 </button>
               </form>
               {error && <div style={{ color: 'var(--danger)', marginTop: '1rem' }}>{error}</div>}
@@ -241,7 +297,7 @@ function App() {
             <div className="public-rooms-card glass">
               <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Public Rooms</h2>
               {publicRooms.length === 0 ? (
-                <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '2rem' }}>No public rooms active right now. Create one!</p>
+                <p style={{ color: 'var(--text-muted)', textAlign: 'center', marginTop: '2rem' }}>No public rooms active right now.</p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
                   {publicRooms.map(room => (
@@ -253,7 +309,7 @@ function App() {
                           {room.media ? ` • Watching: ${room.media.title}` : ' • In Lobby'}
                         </p>
                       </div>
-                      <button className="btn" style={{ background: 'var(--primary)', padding: '0.4rem 1rem' }}>Join</button>
+                      <button className="btn" style={{ background: '#e50914', color: 'white', padding: '0.4rem 1rem' }}>Join</button>
                     </div>
                   ))}
                 </div>
@@ -261,19 +317,7 @@ function App() {
             </div>
           </div>
         </main>
-      ) : (
-        <ScreenShare
-          roomId={roomId}
-          isOwner={isOwner}
-          onLeave={handleLeave}
-          onHostMigrate={(isHost: boolean) => {
-            setIsOwner(isHost);
-            const saved = JSON.parse(sessionStorage.getItem('watch2gether_room') || '{}');
-            sessionStorage.setItem('watch2gether_room', JSON.stringify({ ...saved, isOwner: isHost }));
-          }}
-          roomConfig={roomConfig}
-        />
-      )}
+      ) : null}
 
       {/* Modals */}
       {createPromptVisible && (
@@ -335,6 +379,7 @@ function App() {
           </form>
         </div>
       )}
+      </div>
     </div>
   );
 }
