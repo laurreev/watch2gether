@@ -552,16 +552,16 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
     return (
       <div className="netflix-home" onScroll={handleScroll}>
         <div className="search-results-container" style={{ minHeight: '100vh', paddingTop: '50px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '4%', paddingRight: '4%', marginBottom: '20px' }}>
+          <div className="tab-header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '4%', paddingRight: '4%', marginBottom: '20px' }}>
             <h2 className="row-title" style={{ textTransform: 'capitalize', fontSize: '2rem', margin: 0, padding: 0 }}>
               {activeTab}
             </h2>
             
             {(activeTab === 'movies' || activeTab === 'series') && (
-              <div style={{ display: 'flex', gap: '15px' }}>
+              <div className="movie-filters">
                 <select 
                   className="filter-dropdown"
-                  style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', outline: 'none' }}
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer', outline: 'none' }}
                   value={selectedYear} 
                   onChange={e => { setSelectedYear(e.target.value); setGridPage(1); setGridMedia([]); }}
                 >
@@ -574,7 +574,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
                 
                 <select 
                   className="filter-dropdown"
-                  style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', outline: 'none' }}
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer', outline: 'none' }}
                   value={selectedGenre} 
                   onChange={e => { setSelectedGenre(e.target.value); setGridPage(1); setGridMedia([]); }}
                 >
@@ -586,7 +586,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
                 
                 <select 
                   className="filter-dropdown"
-                  style={{ padding: '8px 12px', background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', fontSize: '1rem', cursor: 'pointer', outline: 'none' }}
+                  style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer', outline: 'none' }}
                   value={selectedRating} 
                   onChange={e => { setSelectedRating(e.target.value); setGridPage(1); setGridMedia([]); }}
                 >

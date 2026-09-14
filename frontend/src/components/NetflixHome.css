@@ -726,4 +726,8 @@
     width: 100%;
     margin-top: 10px;
   }
+  .tab-header-container {
+    flex-direction: column;
+    align-items: flex-start !important;
+  }
 }
