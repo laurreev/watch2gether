@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { getMediaDetailsAndTrailer, getTvSeasons, getEpisodesForSeason, type MediaDetails } from '../services/vaporpic.ts';
 import type { MediaItem } from './NetflixHome.tsx';
+import ReactPlayerModule from 'react-player';
 import './NetflixDetails.css';
+
+const ReactPlayer = (ReactPlayerModule as any).default || ReactPlayerModule;
 
 interface NetflixDetailsProps {
   media: MediaItem;
@@ -42,11 +45,11 @@ const NetflixDetails: React.FC<NetflixDetailsProps> = ({ media, onBack, onPlayLo
       }).catch(console.error);
     }
     return () => { mounted = false; };
-  }, [media]);
+  }, [media.id, media.type, media.tmdb_type]);
 
   useEffect(() => {
     let mounted = true;
-    if (selectedSeason !== null) {
+    if (selectedSeason !== null && (media.tmdb_type === 'tv' || media.type === 'Series' || media.type === 'Anime' || media.type === 'K-Drama')) {
       setIsLoadingEpisodes(true);
       getEpisodesForSeason(media.id, selectedSeason).then(eps => {
         if (mounted) {
@@ -60,9 +63,10 @@ const NetflixDetails: React.FC<NetflixDetailsProps> = ({ media, onBack, onPlayLo
       });
     }
     return () => { mounted = false; };
-  }, [selectedSeason, media.id]);
+  }, [selectedSeason, media.id, media.type, media.tmdb_type]);
 
   const bgImage = details?.backdrop_url || media.imageUrl;
+  const [isPlaying, setIsPlaying] = useState(false);
   
   const handlePlayEp = (ep?: number) => {
     onPlayLocal(media, ep, selectedSeason || undefined);
@@ -81,17 +85,35 @@ const NetflixDetails: React.FC<NetflixDetailsProps> = ({ media, onBack, onPlayLo
       <div className="details-hero movie-hero">
         <div className="details-hero-bg">
           {details?.youtube_trailer_id ? (
-            <iframe
-              className="details-hero-video"
-              src={`https://www.youtube.com/embed/${details.youtube_trailer_id}?autoplay=1&mute=0&controls=0&showinfo=0&rel=0&loop=1&playlist=${details.youtube_trailer_id}&modestbranding=1`}
-              frameBorder="0"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            ></iframe>
-          ) : (
-            <img src={bgImage} alt={media.title} />
-          )}
-          <div className="details-vignette-bottom"></div>
+            <div className="details-hero-video-wrapper" style={{ opacity: isPlaying ? 1 : 0, transition: 'opacity 0.5s', width: '100%', height: '100%', position: 'absolute', zIndex: 1 }}>
+              <ReactPlayer
+                url={`https://www.youtube.com/watch?v=${details.youtube_trailer_id}`}
+                playing={true}
+                muted={true}
+                controls={false}
+                loop={true}
+                playsinline={true}
+                width="100%"
+                height="100%"
+                className="details-hero-video"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                config={{
+                  youtube: {
+                    playerVars: {
+                      showinfo: 0,
+                      rel: 0,
+                      modestbranding: 1,
+                      iv_load_policy: 3,
+                      disablekb: 1
+                    }
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+          <img src={bgImage} alt={media.title} style={{ width: '100%', height: '100%', objectFit: 'cover', opacity: 0.5, position: 'absolute', top: 0, left: 0, zIndex: 0 }} />
+          <div className="details-vignette-bottom" style={{ zIndex: 2 }}></div>
         </div>
 
         <div className="details-hero-content">

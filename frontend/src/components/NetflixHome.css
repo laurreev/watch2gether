@@ -210,13 +210,15 @@
 }
 
 .preview-modal-video {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  width: 150%;
-  aspect-ratio: 16 / 9;
-  pointer-events: none;
-  transform: translate(-50%, -50%) scale(1.3);
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 100vw !important;
+  height: 56.25vw !important; /* 16:9 aspect ratio */
+  min-height: 100vh !important;
+  min-width: 177.77vh !important; /* 16:9 aspect ratio */
+  pointer-events: none !important;
+  transform: translate(-50%, -50%) scale(1.35) !important;
 }
 
 .preview-modal-hero img {

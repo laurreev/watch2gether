@@ -13,6 +13,10 @@ interface SoloPlayerProps {
 const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack }) => {
   const [server, setServer] = useState<string>('1');
   const [iframeUrl, setIframeUrl] = useState('');
+  const [isTheaterMode, setIsTheaterMode] = useState(false);
+
+  // Detect iOS to disable native fullscreen which strips HTML subtitles
+  const isIOS = typeof navigator !== 'undefined' && /iPad|iPhone|iPod/.test(navigator.userAgent) && !(window as any).MSStream;
 
   useEffect(() => {
     let mounted = true;
@@ -24,7 +28,7 @@ const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack 
   }, [media, server, episode, season]);
 
   return (
-    <div className="solo-player-container">
+    <div className={`solo-player-container ${isTheaterMode ? 'theater' : ''}`}>
       <div className="solo-player-header glass">
           <button className="btn-back-solo" onClick={onBack}>← Back</button>
           
@@ -32,7 +36,13 @@ const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack 
             <span style={{color: '#a3a3a3'}}>Playing:</span> {media.title} {episode ? `- S${season || 1} E${episode}` : ''}
           </div>
 
-          <div className="solo-player-controls">
+          <div className="solo-player-controls" style={{ gap: '10px' }}>
+            <button 
+              onClick={() => setIsTheaterMode(!isTheaterMode)}
+              style={{ padding: '0.4rem 1rem', borderRadius: '4px', background: '#e50914', color: 'white', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              {isTheaterMode ? 'Exit Theater' : 'Theater Mode'}
+            </button>
             <select 
               className="select-input" 
               value={server} 
@@ -56,7 +66,7 @@ const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack 
             src={iframeUrl}
             width="100%"
             height="100%"
-            allowFullScreen
+            allowFullScreen={!isIOS}
             style={{ position: 'absolute', top: 0, left: 0, border: 'none', zIndex: 1 }}
           />
         ) : (

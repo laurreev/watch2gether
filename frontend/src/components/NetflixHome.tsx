@@ -1,8 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { searchVaporpic, getMediaDetailsAndTrailer, type VaporpicMediaItem } from '../services/vaporpic';
 import HeroBanner from './HeroBanner';
-import type { TabType } from './Sidebar';
+import ReactPlayerModule from 'react-player';
 import './NetflixHome.css';
+
+const ReactPlayer = (ReactPlayerModule as any).default || ReactPlayerModule;
+
+export type TabType = 'home' | 'search' | 'movies' | 'series' | 'anime' | 'kdrama';
 
 export interface MediaItem {
   id: string;
@@ -179,6 +183,7 @@ interface NetflixHomeProps {
 
 const PreviewModal: React.FC<{ media: MediaItem, onClose: () => void, onWatch: (media: MediaItem) => void }> = ({ media, onClose, onWatch }) => {
   const [details, setDetails] = useState<any>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -193,18 +198,37 @@ const PreviewModal: React.FC<{ media: MediaItem, onClose: () => void, onWatch: (
       <div className="preview-modal-content" onClick={e => e.stopPropagation()}>
         <button className="preview-modal-close" onClick={onClose}>×</button>
         <div className="preview-modal-hero">
+          <img src={details?.backdrop_url || media.imageUrl} alt={media.title} style={{ width: '100%', height: '100%', objectFit: 'cover', position: 'absolute', zIndex: 0 }} />
+          
           {details?.youtube_trailer_id ? (
-            <iframe
-              className="preview-modal-video"
-              src={`https://www.youtube.com/embed/${details.youtube_trailer_id}?autoplay=1&mute=0&controls=0&showinfo=0&rel=0&loop=1&playlist=${details.youtube_trailer_id}&modestbranding=1`}
-              frameBorder="0"
-              allow="autoplay; encrypted-media"
-              allowFullScreen
-            ></iframe>
-          ) : (
-            <img src={details?.backdrop_url || media.imageUrl} alt={media.title} />
-          )}
-          <div className="preview-modal-hero-vignette"></div>
+            <div style={{ opacity: isPlaying ? 1 : 0, transition: 'opacity 0.5s', position: 'absolute', top: 0, left: 0, width: '100%', height: '100%', zIndex: 1 }}>
+              <ReactPlayer
+                url={`https://www.youtube.com/watch?v=${details.youtube_trailer_id}`}
+                playing={true}
+                muted={true}
+                controls={false}
+                loop={true}
+                playsinline={true}
+                width="100%"
+                height="100%"
+                className="preview-modal-video"
+                onPlay={() => setIsPlaying(true)}
+                onPause={() => setIsPlaying(false)}
+                config={{
+                  youtube: {
+                    playerVars: {
+                      showinfo: 0,
+                      rel: 0,
+                      modestbranding: 1,
+                      iv_load_policy: 3,
+                      disablekb: 1
+                    }
+                  }
+                }}
+              />
+            </div>
+          ) : null}
+          <div className="preview-modal-hero-vignette" style={{ zIndex: 2 }}></div>
         </div>
         <div className="preview-modal-info">
           <h2>{media.title}</h2>

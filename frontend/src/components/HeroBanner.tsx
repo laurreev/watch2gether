@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { getMediaDetailsAndTrailer, type MediaDetails } from '../services/vaporpic.ts';
 import type { MediaItem } from './NetflixHome.tsx';
+import ReactPlayerModule from 'react-player';
 import './HeroBanner.css';
+
+const ReactPlayer = (ReactPlayerModule as any).default || ReactPlayerModule;
 
 interface HeroBannerProps {
   mediaItems: MediaItem[];
@@ -15,8 +18,14 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ mediaItems, onWatch }) => {
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [touchStart, setTouchStart] = useState(0);
   const [touchEnd, setTouchEnd] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
 
   const activeMedia = mediaItems[currentIndex];
+
+  // Reset playing state when slide changes
+  useEffect(() => {
+    setIsPlaying(false);
+  }, [currentIndex]);
 
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 768);
@@ -107,17 +116,36 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ mediaItems, onWatch }) => {
           return (
             <div className="hero-slide" key={item.id} style={{ width: `${100 / mediaItems.length}%` }}>
               <div className="hero-media-container">
+                <img src={bgImage} alt={displayTitle} className="hero-bg-image" style={{ position: 'absolute', zIndex: 0 }} />
+                
                 {isActive && trailerReady && itemDetails?.youtube_trailer_id && !isMobile ? (
-                  <iframe
-                    className="hero-video"
-                    src={`https://www.youtube.com/embed/${itemDetails.youtube_trailer_id}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${itemDetails.youtube_trailer_id}&modestbranding=1`}
-                    frameBorder="0"
-                    allow="autoplay; encrypted-media"
-                    allowFullScreen
-                  ></iframe>
-                ) : (
-                  <img src={bgImage} alt={displayTitle} className="hero-bg-image" />
-                )}
+                  <div style={{ opacity: isPlaying ? 1 : 0, transition: 'opacity 0.5s', position: 'absolute', width: '100%', height: '100%', zIndex: 1 }}>
+                    <ReactPlayer
+                      url={`https://www.youtube.com/watch?v=${itemDetails.youtube_trailer_id}`}
+                      playing={true}
+                      muted={true}
+                      controls={false}
+                      loop={true}
+                      playsinline={true}
+                      width="100%"
+                      height="100%"
+                      className="hero-video"
+                      onPlay={() => setIsPlaying(true)}
+                      onPause={() => setIsPlaying(false)}
+                      config={{
+                        youtube: {
+                          playerVars: {
+                            showinfo: 0,
+                            rel: 0,
+                            modestbranding: 1,
+                            iv_load_policy: 3,
+                            disablekb: 1
+                          }
+                        }
+                      }}
+                    />
+                  </div>
+                ) : null}
               </div>
 
               <div className="hero-vignette-top" />
