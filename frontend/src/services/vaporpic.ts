@@ -2,12 +2,13 @@ const TMDB_API_KEY = import.meta.env.VITE_TMDB_API_KEY;
 
 export interface VaporpicSearchResponse {
   results: VaporpicMediaItem[];
+  total_pages?: number;
 }
 
 export interface VaporpicMediaItem {
   id: string;
   title: string;
-  media_type: 'movie' | 'tv' | 'anime' | 'asian' | 'tvod';
+  media_type: 'movie' | 'tv' | 'anime' | 'kdrama' | 'tvod';
   poster_url?: string;
   year?: string;
   url?: string;
@@ -16,6 +17,7 @@ export interface VaporpicMediaItem {
   season?: number;
   overview?: string;
   vote_average?: number;
+  tmdb_type?: 'movie' | 'tv';
 }
 
 const genreMap: Record<string, number[]> = {
@@ -48,7 +50,7 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
       return { results: [] };
     }
 
-    const searchType = type === 'movie' ? 'movie' : type === 'tv' ? 'tv' : type === 'anime' ? 'tv' : type === 'asian' ? 'tv' : 'multi';
+    const searchType = type === 'movie' ? 'movie' : type === 'tv' ? 'tv' : type === 'anime' ? 'tv' : type === 'kdrama' ? 'multi' : 'multi';
     const encodedQuery = encodeURIComponent(query);
     
     let url = '';
@@ -57,14 +59,52 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
       if (type === 'anime') {
          url = `https://api.themoviedb.org/3/discover/tv?with_genres=16&with_original_language=ja&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
          if (year) url += `&first_air_date_year=${year}`;
-      } else if (type === 'asian') {
-         url = `https://api.themoviedb.org/3/discover/tv?with_original_language=ko|zh|th|ja&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+      } else if (type === 'kdrama') {
+         let tvUrl = `https://api.themoviedb.org/3/discover/tv?with_original_language=ko&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+         let movieUrl = `https://api.themoviedb.org/3/discover/movie?with_original_language=ko&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+         
          if (genre) {
             const genreIds = genreMap[genre.toLowerCase()];
-            if (genreIds) url += `&with_genres=${genreIds.join('|')}`;
+            if (genreIds) {
+               tvUrl += `&with_genres=${genreIds.join('|')}`;
+               movieUrl += `&with_genres=${genreIds.join('|')}`;
+            }
          }
-         if (year) url += `&first_air_date_year=${year}`;
-         if (rating) url += `&vote_average.gte=${rating}`;
+         if (year) {
+             tvUrl += `&first_air_date_year=${year}`;
+             movieUrl += `&primary_release_year=${year}`;
+         }
+         if (rating) {
+             tvUrl += `&vote_average.gte=${rating}`;
+             movieUrl += `&vote_average.gte=${rating}`;
+         }
+         
+         tvUrl += `&page=${page}`;
+         movieUrl += `&page=${page}`;
+         
+         const [tvRes, movieRes] = await Promise.all([
+           fetch(tvUrl, { headers: { 'accept': 'application/json' }, signal }).then(res => res.json()),
+           fetch(movieUrl, { headers: { 'accept': 'application/json' }, signal }).then(res => res.json())
+         ]);
+         
+         const tvItems = (tvRes.results || []).map((item: any) => ({ ...item, media_type: 'tv' }));
+         const movieItems = (movieRes.results || []).map((item: any) => ({ ...item, media_type: 'movie' }));
+         const combined = [...tvItems, ...movieItems].sort((a, b) => b.popularity - a.popularity);
+         
+         const mappedResults: VaporpicMediaItem[] = combined.slice(0, 20).map((item: any) => ({
+            id: item.id.toString(),
+            title: item.title || item.name,
+            media_type: 'kdrama',
+            poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : undefined,
+            year: item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : undefined),
+            url: item.id.toString(),
+            originalUrl: item.id.toString(),
+            overview: item.overview,
+            vote_average: item.vote_average,
+            tmdb_type: item.media_type,
+         }));
+         
+         return { results: mappedResults, total_pages: Math.max(tvRes.total_pages || 1, movieRes.total_pages || 1) };
       } else if (genre || year || rating) {
          // Use discover endpoint if filters are applied
          const discType = searchType === 'multi' ? 'movie' : searchType;
@@ -121,7 +161,7 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
       
       // Override for our custom tabs so the UI knows how to label them
       if (type === 'anime') mappedMediaType = 'anime';
-      if (type === 'asian') mappedMediaType = 'asian';
+      if (type === 'kdrama') mappedMediaType = 'kdrama';
       if (mappedMediaType === 'tv') mappedMediaType = 'tvod'; // Map to expected frontend type if needed, but our UI now expects 'tv', 'asian', 'anime' etc.
       
       return {
@@ -134,13 +174,51 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
         originalUrl: item.id.toString(),
         overview: item.overview,
         vote_average: item.vote_average,
+        tmdb_type: (item.media_type === 'movie' || searchType === 'movie') ? 'movie' : 'tv',
       };
     });
 
-    return { results: mappedResults };
+    return { results: mappedResults, total_pages: data.total_pages || 1 };
   } catch (error) {
     console.error(`Error fetching search results:`, error);
-    return { results: [] };
+    return { results: [], total_pages: 1 };
+  }
+};
+
+export const getMediaDetails = async (id: string, type: string, tmdb_type?: 'movie' | 'tv'): Promise<VaporpicMediaItem | null> => {
+  try {
+    if (!TMDB_API_KEY) return null;
+    
+    // Support parsing both our frontend 'Movie'/'Series' types and native tmdb types
+    const isMovie = tmdb_type === 'movie' || type.toLowerCase() === 'movie';
+    const endpointType = isMovie ? 'movie' : 'tv';
+    
+    const response = await fetch(`https://api.themoviedb.org/3/${endpointType}/${id}?api_key=${TMDB_API_KEY}&language=en-US`, {
+      headers: { 'accept': 'application/json' }
+    });
+    
+    if (!response.ok) return null;
+    const item = await response.json();
+    
+    let mappedMediaType: 'movie' | 'tv' | 'anime' | 'kdrama' | 'tvod' = 'tv';
+    if (isMovie) mappedMediaType = 'movie';
+    if (type.toLowerCase() === 'anime') mappedMediaType = 'anime';
+    if (type.toLowerCase() === 'k-drama') mappedMediaType = 'kdrama';
+    
+    return {
+        id: item.id.toString(),
+        title: item.title || item.name,
+        media_type: mappedMediaType,
+        poster_url: item.poster_path ? `https://image.tmdb.org/t/p/w500${item.poster_path}` : undefined,
+        year: item.release_date ? item.release_date.split('-')[0] : (item.first_air_date ? item.first_air_date.split('-')[0] : undefined),
+        url: item.id.toString(),
+        originalUrl: item.id.toString(),
+        overview: item.overview,
+        vote_average: item.vote_average,
+    };
+  } catch (err) {
+    console.error('Failed to get media details', err);
+    return null;
   }
 };
 
@@ -176,7 +254,13 @@ export const getEpisodesForSeason = async (tmdbId: string, seasonNumber: number)
         });
         if (!response.ok) return [];
         const data = await response.json();
-        return data.episodes || [];
+        if (!data.episodes) return [];
+        const now = new Date();
+        return data.episodes.filter((ep: any) => {
+            if (!ep.air_date) return false;
+            const airDate = new Date(ep.air_date);
+            return airDate <= now;
+        });
     } catch (e) {
         return [];
     }
@@ -269,9 +353,9 @@ export interface MediaDetails {
   type: 'movie' | 'tv';
 }
 
-export const getMediaDetailsAndTrailer = async (tmdbId: string, type: 'Movie' | 'TV Show' | 'Anime' | 'Asian' | string): Promise<MediaDetails | null> => {
+export const getMediaDetailsAndTrailer = async (tmdbId: string, type: 'Movie' | 'Series' | 'Anime' | 'K-Drama' | string, tmdb_type?: 'movie' | 'tv'): Promise<MediaDetails | null> => {
   try {
-    const tmdbType = (type === 'Movie' || type === 'movie') ? 'movie' : 'tv';
+    const tmdbType = tmdb_type || ((type === 'Movie' || type === 'movie') ? 'movie' : 'tv');
     if (!TMDB_API_KEY) return null;
     
     const url = `https://api.themoviedb.org/3/${tmdbType}/${tmdbId}?api_key=${TMDB_API_KEY}&append_to_response=videos`;

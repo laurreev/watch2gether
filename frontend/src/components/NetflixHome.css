@@ -5,6 +5,7 @@
   overflow-y: auto;
   background-color: #141414;
   color: #fff;
+  padding-left: 80px;
 }
 
 .netflix-rows-container {
@@ -36,10 +37,18 @@
   display: flex;
   overflow-x: auto;
   overflow-y: hidden;
-  padding: 20px 4%;
+  padding: 20px 0;
   scroll-behavior: smooth;
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
+}
+
+.row-posters::before,
+.row-posters::after {
+  content: '';
+  flex: 0 0 4vw;
+  display: block;
+  scroll-snap-align: start;
 }
 
 .row-posters::-webkit-scrollbar {
@@ -354,9 +363,13 @@
 .media-card-meta {
   display: flex;
   align-items: center;
-  font-size: 0.8rem;
+  font-size: 0.7rem;
   color: #aaa;
-  gap: 6px;
+  gap: 4px;
+}
+
+.media-card-meta span {
+  white-space: nowrap;
 }
 
 .media-card-rating {
@@ -420,7 +433,7 @@
 }
 
 @media (max-width: 768px) {
-  .search-bar-container {
+  .netflix-search-bar {
     top: 80px;
     right: 10px;
     left: 10px;
@@ -438,7 +451,7 @@
 /* SEARCH OVERHAUL STYLES                */
 /* ------------------------------------- */
 
-.search-bar-container {
+.netflix-search-bar {
   display: flex;
   align-items: center;
   background-color: #1a1b26;
@@ -450,7 +463,7 @@
   border: 1px solid rgba(255,255,255,0.1);
   transition: border-color 0.2s;
 }
-.search-bar-container:focus-within {
+.netflix-search-bar:focus-within {
   border-color: #6366f1;
 }
 .search-icon {
@@ -673,9 +686,14 @@
   }
   .search-results-container {
     padding-bottom: 80px;
+    padding-top: 80px !important;
   }
-  .search-bar-container {
+  .netflix-search-bar {
     margin-bottom: 20px;
+    margin-top: 80px !important;
+  }
+  .netflix-home {
+    padding-left: 0;
   }
   .search-bar-input {
     font-size: 16px; /* prevent iOS zoom */
@@ -692,6 +710,7 @@
   .search-results-grid {
     grid-template-columns: repeat(auto-fill, minmax(30vw, 1fr));
     gap: 3vw;
+    padding: 0 16px;
   }
   .top10-number {
     font-size: 20vw;
@@ -730,4 +749,48 @@
     flex-direction: column;
     align-items: flex-start !important;
   }
+}
+
+.back-to-top-btn {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background-color: rgba(99, 102, 241, 0.9);
+  color: white;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+  transition: all 0.3s ease;
+}
+
+.back-to-top-btn:hover {
+  background-color: rgba(99, 102, 241, 1);
+  transform: translateY(-2px);
+}
+
+@media (max-width: 768px) {
+  .back-to-top-btn {
+    bottom: 80px; /* Above mobile bottom nav */
+    right: 16px;
+    width: 40px;
+    height: 40px;
+  }
+}
+
+.movie-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.filter-dropdown {
+  padding: 5px 10px;
 }

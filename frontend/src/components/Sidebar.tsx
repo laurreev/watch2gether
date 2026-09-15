@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import './Sidebar.css';
 
-export type TabType = 'home' | 'search' | 'movies' | 'series' | 'anime' | 'asian';
+export type TabType = 'home' | 'search' | 'movies' | 'series' | 'anime' | 'kdrama';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -71,17 +71,49 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, nickname, onOpenRooms }) => {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const tabs = [
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
     { id: 'search', icon: <SearchIcon />, label: 'Search' },
     { id: 'movies', icon: <MoviesIcon />, label: 'Movies' },
     { id: 'series', icon: <SeriesIcon />, label: 'Series' },
     { id: 'anime', icon: <AnimeIcon />, label: 'Anime' },
-    { id: 'asian', icon: <AsianIcon />, label: 'Asian' },
+    { id: 'kdrama', icon: <AsianIcon />, label: 'K-Drama' },
   ];
 
   return (
-    <aside className="sidebar-nav">
+    <>
+      <div className="mobile-top-nav">
+        <div className="mobile-logo" style={{ color: '#e50914', fontWeight: 800, fontSize: '1.2rem' }}>
+          WATCH2GETHER
+        </div>
+        <button className="hamburger-btn" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="3" y1="12" x2="21" y2="12"></line>
+            <line x1="3" y1="6" x2="21" y2="6"></line>
+            <line x1="3" y1="18" x2="21" y2="18"></line>
+          </svg>
+        </button>
+        {isMenuOpen && (
+          <div className="mobile-dropdown-menu">
+            {nickname && (
+              <div className="mobile-dropdown-item" style={{ color: '#22c55e' }}>
+                <span style={{ marginRight: '8px' }}>●</span> {activeUsers} Online
+              </div>
+            )}
+            <button 
+              className="mobile-dropdown-item" 
+              onClick={() => { onOpenRooms(); setIsMenuOpen(false); }}
+              style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', textAlign: 'left', width: '100%', fontSize: '1rem' }}
+            >
+              Rooms
+            </button>
+          </div>
+        )}
+      </div>
+
+      <aside className="sidebar-nav">
       <div className="sidebar-logo">
         <span className="icon" style={{ display: 'flex', alignItems: 'center' }}>
           <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -117,6 +149,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, 
         </button>
       </div>
     </aside>
+    </>
   );
 };
 

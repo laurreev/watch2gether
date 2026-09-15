@@ -8,7 +8,7 @@ import './MediaSelector.css';
 interface MediaItem {
   id: string;
   title: string;
-  type: 'Movie' | 'TV Show' | 'Anime' | 'Asian';
+  type: 'Movie' | 'Series' | 'Anime' | 'K-Drama';
   imageUrl: string;
   url?: string;
   originalUrl?: string;
@@ -25,7 +25,7 @@ interface MediaSelectorProps {
 
 const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
   const [searchQuery, setSearchQuery] = useState('');
-  const [activeTab, setActiveTab] = useState<'All' | 'Movie' | 'TV Show' | 'Anime' | 'Asian'>('All');
+  const [activeTab, setActiveTab] = useState<'All' | 'Movie' | 'Series' | 'Anime' | 'K-Drama'>('All');
   const [activeGenre, setActiveGenre] = useState('All');
   const [activeYear, setActiveYear] = useState('All');
   const [results, setResults] = useState<MediaItem[]>([]);
@@ -74,9 +74,9 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
         // Map UI tabs to API media types
         const typeMapping: Record<string, string> = {
           'Movie': 'movie',
-          'TV Show': 'tv',
+          'Series': 'tv',
           'Anime': 'anime',
-          'Asian': 'asian',
+          'K-Drama': 'kdrama',
           'All': ''
         };
         
@@ -91,10 +91,10 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
         if (response.results && response.results.length > 0) {
           // Map API results to UI state
           const mappedResults: MediaItem[] = response.results.map((item: VaporpicMediaItem) => {
-             let mappedType: 'Movie' | 'TV Show' | 'Anime' | 'Asian' = 'Movie';
-             if (item.media_type === 'tv' || item.media_type === 'tvod') mappedType = 'TV Show';
+             let mappedType: 'Movie' | 'Series' | 'Anime' | 'K-Drama' = 'Movie';
+             if (item.media_type === 'tv' || item.media_type === 'tvod') mappedType = 'Series';
              if (item.media_type === 'anime') mappedType = 'Anime';
-             if (item.media_type === 'asian') mappedType = 'Asian';
+             if (item.media_type === 'kdrama') mappedType = 'K-Drama';
              
              return {
                id: item.id,
@@ -168,7 +168,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
       return;
     }
     
-    if (item.type === 'TV Show' || item.type === 'Anime' || item.type === 'Asian') {
+    if (item.type === 'Series' || item.type === 'Anime' || item.type === 'K-Drama') {
        setSelectedTvShow(item);
        setIsLoadingEpisodes(true);
        try {
@@ -269,7 +269,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
                 <input 
                   type="text" 
                   className="input-field search-input" 
-                  placeholder="Search for movies, TV shows, anime..." 
+                  placeholder="Search for movies, series, anime..." 
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
                 />
@@ -278,7 +278,7 @@ const MediaSelector: React.FC<MediaSelectorProps> = ({ onPlay, onClose }) => {
               
               <div className="media-filters">
                 <div className="media-tabs">
-                  {['All', 'Movie', 'TV Show', 'Anime', 'Asian'].map(tab => (
+                  {['All', 'Movie', 'Series', 'Anime', 'K-Drama'].map(tab => (
                     <button 
                       key={tab} 
                       className={`tab-btn ${activeTab === tab ? 'active' : ''}`}

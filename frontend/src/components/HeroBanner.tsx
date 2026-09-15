@@ -12,8 +12,25 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ mediaItems, onWatch }) => {
   const [detailsMap, setDetailsMap] = useState<Record<string, MediaDetails>>({});
   const [trailerReady, setTrailerReady] = useState(false);
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [touchStart, setTouchStart] = useState(0);
+  const [touchEnd, setTouchEnd] = useState(0);
 
   const activeMedia = mediaItems[currentIndex];
+
+  useEffect(() => {
+    const handleResize = () => setIsMobile(window.innerWidth <= 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  useEffect(() => {
+    if (mediaItems.length <= 1) return;
+    const interval = setInterval(() => {
+      setCurrentIndex((prev) => (prev + 1) % mediaItems.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [mediaItems.length]);
 
   useEffect(() => {
     let mounted = true;
@@ -42,6 +59,29 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ mediaItems, onWatch }) => {
     setCurrentIndex((prev) => (prev - 1 + mediaItems.length) % mediaItems.length);
   };
 
+  const handleTouchStart = (e: React.TouchEvent) => {
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+  
+  const handleTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+  
+  const handleTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+    const distance = touchStart - touchEnd;
+    const isLeftSwipe = distance > 50;
+    const isRightSwipe = distance < -50;
+    if (isLeftSwipe) {
+      handleNext();
+    }
+    if (isRightSwipe) {
+      handlePrev();
+    }
+    setTouchStart(0);
+    setTouchEnd(0);
+  };
+
   if (!activeMedia) {
     return <div className="hero-banner skeleton-banner" />;
   }
@@ -54,6 +94,9 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ mediaItems, onWatch }) => {
           transform: `translateX(-${currentIndex * (100 / mediaItems.length)}%)`,
           width: `${mediaItems.length * 100}%`
         }}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {mediaItems.map((item, index) => {
           const isActive = index === currentIndex;
@@ -64,7 +107,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ mediaItems, onWatch }) => {
           return (
             <div className="hero-slide" key={item.id} style={{ width: `${100 / mediaItems.length}%` }}>
               <div className="hero-media-container">
-                {isActive && trailerReady && itemDetails?.youtube_trailer_id ? (
+                {isActive && trailerReady && itemDetails?.youtube_trailer_id && !isMobile ? (
                   <iframe
                     className="hero-video"
                     src={`https://www.youtube.com/embed/${itemDetails.youtube_trailer_id}?autoplay=1&mute=1&controls=0&showinfo=0&rel=0&loop=1&playlist=${itemDetails.youtube_trailer_id}&modestbranding=1`}
@@ -89,7 +132,7 @@ const HeroBanner: React.FC<HeroBannerProps> = ({ mediaItems, onWatch }) => {
                     <div className="hero-meta">
                       {itemDetails.vote_average ? (
                         <span className="meta-rating">
-                          {itemDetails.vote_average.toFixed(1)} <span className="meta-rating-sub">/ 10 <span className="star">★</span></span>
+                          ★ {itemDetails.vote_average.toFixed(1)}
                         </span>
                       ) : null}
                       {itemDetails.year && <span className="meta-year">{itemDetails.year}</span>}

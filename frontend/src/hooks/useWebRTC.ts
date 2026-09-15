@@ -146,6 +146,11 @@ export const useWebRTC = (roomId: string | null, isOwner: boolean = false, roomC
     });
 
     return () => {
+      // Stop all local stream tracks so browser tab sharing indicator goes away
+      if (localStreamRef.current) {
+        localStreamRef.current.getTracks().forEach(track => track.stop());
+        localStreamRef.current = null;
+      }
       socketRef.current?.disconnect();
       peersRef.current.forEach(pc => pc.close());
       peersRef.current.clear();

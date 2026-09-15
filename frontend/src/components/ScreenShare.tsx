@@ -8,12 +8,13 @@ const ReactPlayer = (ReactPlayerModule as any).default || ReactPlayerModule;
 interface ScreenShareProps {
   roomId: string;
   isOwner: boolean;
-  onLeave?: (errorMsg?: string) => void;
-  onHostMigrate?: (isHost: boolean) => void;
+  onLeave: (msg?: string) => void;
+  onHostMigrate: (isHost: boolean) => void;
   roomConfig?: { isPublic: boolean; password?: string };
-  initialMedia?: any;
+  initialMedia?: { id: string; title: string; type: string; imageUrl?: string; url?: string; originalUrl?: string; year?: string; vote_average?: number; tmdb_type?: string };
   initialEpisode?: number;
   initialSeason?: number;
+  initialSynced?: boolean;
 }
 
 // Helper component to render a media stream
@@ -187,17 +188,12 @@ const VideoStream: React.FC<{ stream: MediaStream | null; label: string; isLocal
   );
 };
 
-const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onHostMigrate, roomConfig, initialMedia, initialEpisode, initialSeason }) => {
-  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, usersList, socket } = useWebRTC(
-    roomId || null,
-    isOwner,
-    roomConfig,
-    onLeave
-  );
+const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onHostMigrate, roomConfig, initialMedia, initialEpisode, initialSeason, initialSynced }) => {
+  const { localStream, remoteStreams, startScreenShare, stopScreenShare, error, userCount, usersList, socket } = useWebRTC(roomId, isOwner, roomConfig, onLeave);
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
   const [showMediaSelector, setShowMediaSelector] = useState<'local' | 'share' | false>(false);
-  const [playingMedia, setPlayingMedia] = useState<any | null>(null);
+  const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string, episode?: number, season?: number} | null>(null);
   const [activeServer, setActiveServer] = useState('1');
   const [isExtractingServer, setIsExtractingServer] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
@@ -210,7 +206,6 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const [chatInput, setChatInput] = useState('');
   const [showCopyPrompt, setShowCopyPrompt] = useState(false);
   const [notification, setNotification] = useState<string | null>(null);
-  const [showChatOnMobile] = useState(false);
   const chatContainerRef = useRef<HTMLDivElement>(null);
 
   // YouTube / ReactPlayer sync states
@@ -223,16 +218,6 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const reactPlayerRef = useRef<any>(null);
   const isSyncingRef = useRef(false);
   const [showYoutubeInput, setShowYoutubeInput] = useState(false);
-
-  useEffect(() => {
-    if (initialMedia && (!roomId || isOwner)) {
-      handlePlayMedia({
-        ...initialMedia,
-        season: initialSeason,
-        episode: initialEpisode
-      });
-    }
-  }, [initialMedia, roomId, isOwner]);
 
   const canControlPlayback = isOwner || viewerControlEnabled;
 
@@ -269,12 +254,12 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     const handleMigrate = () => {
       setNotification("You have been promoted to Host!");
       setTimeout(() => setNotification(null), 5000);
-      onHostMigrate?.(true);
+      onHostMigrate(true);
     };
     const handleDemote = () => {
       setNotification("You are no longer the Host.");
       setTimeout(() => setNotification(null), 5000);
-      onHostMigrate?.(false);
+      onHostMigrate(false);
       stopScreenShare();
     };
 
@@ -369,6 +354,19 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     };
   }, [isTheaterMode]);
 
+  // Stop screen share when component unmounts (leave room) or page is refreshed/closed
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (localStream) stopScreenShare();
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also stop on unmount (e.g. clicking Leave)
+      if (localStream) stopScreenShare();
+    };
+  }, [localStream]);
+
   const sendChatMessage = (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim() || !socket) return;
@@ -441,6 +439,47 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
       }
     }
   };
+
+  // Auto-play initial media when coming from details page
+  const initialMediaLoadedRef = React.useRef(false);
+  useEffect(() => {
+    if (!initialMedia || !isOwner || !socket || initialMediaLoadedRef.current) return;
+    initialMediaLoadedRef.current = true;
+
+    const loadInitialMedia = async () => {
+      try {
+        const { getVaporpicIframe } = await import('../services/vaporpic.ts');
+        const url = await getVaporpicIframe(
+          initialMedia.originalUrl || initialMedia.id,
+          '1',
+          initialEpisode?.toString(),
+          initialSeason
+        );
+        const item = {
+          title: initialMedia.title,
+          type: initialMedia.type,
+          url,
+          originalUrl: initialMedia.originalUrl || initialMedia.id,
+          episode: initialEpisode,
+          season: initialSeason,
+          serverStr: '1',
+        };
+        setPlayingMedia(item);
+        if (initialSynced) {
+          // Synced = "Pick and Share" mode: play locally and start WebRTC screen share
+          // Viewers watch via screen share stream, not individual iframes
+          startScreenShare(resolution, showCursor);
+        } else {
+          // Unsynced = broadcast iframe URL to all viewers independently
+          socket.emit('play-media', { roomId, media: item });
+        }
+      } catch (e) {
+        console.error('Failed to load initial media', e);
+      }
+    };
+
+    loadInitialMedia();
+  }, [initialMedia, isOwner, socket]);
 
   const handleStopMedia = () => {
     setPlayingMedia(null);
@@ -519,7 +558,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   }, [socket, isOwner]);
 
   const handleCopyLink = () => {
-    navigator.clipboard.writeText(roomId);
+    const shareUrl = `${window.location.origin}${window.location.pathname}#room/${roomId}`;
+    navigator.clipboard.writeText(shareUrl);
     setShowCopyPrompt(true);
     setTimeout(() => setShowCopyPrompt(false), 2000);
   };
@@ -553,9 +593,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
           <div className={`room-header glass ${!showMobileControls ? 'hide-on-mobile' : ''}`} style={{ marginBottom: '1rem' }}>
           <div className="room-info">
             <h2 style={{ fontSize: '1.25rem', fontWeight: 600 }}>Room:</h2>
-            <div className="room-id-badge" onClick={handleCopyLink} title="Click to copy" style={{ position: 'relative' }}>
+            <div className="room-id-badge" onClick={handleCopyLink} title="Click to copy room link" style={{ position: 'relative' }}>
                {roomId}
-               {showCopyPrompt && <div style={{ position: 'absolute', top: '-2rem', left: '50%', transform: 'translateX(-50%)', background: 'rgba(34, 197, 94, 0.9)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.8rem', whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10 }}>Copied!</div>}
+               {showCopyPrompt && <div style={{ position: 'absolute', top: '-2rem', left: '50%', transform: 'translateX(-50%)', background: 'rgba(34, 197, 94, 0.9)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.8rem', whiteSpace: 'nowrap', pointerEvents: 'none', zIndex: 10 }}>Link Copied!</div>}
             </div>
             <div className="viewer-badge">
               <span style={{ width: 8, height: 8, borderRadius: '50%', background: userCount > 0 ? '#22c55e' : 'var(--text-muted)' }}></span>
@@ -624,14 +664,14 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                      onChange={(e) => handleServerChange(e.target.value)}
                      disabled={isExtractingServer}
                    >
-                      <option value="1">ZXCServer 1</option>
-                      <option value="2">ZXCServer 2</option>
-                      <option value="3">Vidsrc ME</option>
-                      <option value="4">Vidlink (Anime/HD)</option>
-                      <option value="5">Videasy</option>
-                      <option value="6">2Embed</option>
-                      <option value="7">Multiembed</option>
-                   </select>
+                       <option value="1">ZXCServer 1</option>
+                       <option value="2">ZXCServer 2</option>
+                       <option value="3">VidSrc</option>
+                       <option value="4">Vidlink</option>
+                       <option value="5">Videasy</option>
+                       <option value="6">2Embed</option>
+                       <option value="7">Multiembed</option>
+                    </select>
                  )}
                  <button className="btn btn-danger hide-on-mobile" onClick={() => {
                    if (localStream) stopScreenShare();
@@ -661,7 +701,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
             } target="_blank" rel="noopener noreferrer" className="btn" style={{ background: '#8b0000', color: 'white', padding: '0.3rem 0.6rem', borderRadius: '0.5rem', textDecoration: 'none', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '0.5rem', border: 'none', fontSize: '0.85rem' }}>
               <span style={{ fontSize: '1rem' }}>🛡️</span> Install AdBlock
             </a>
-            <button className="btn btn-leave" onClick={() => onLeave?.()}>
+            <button className="btn btn-leave" onClick={() => onLeave()}>
               Leave
             </button>
           </div>
@@ -899,67 +939,87 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                     </div>
                   )}
                </div>
-            </div>
-         )}
-         </div>
-       </div>
+           </div>
+        )}
+        </div>
 
-      {roomId && (
-        <div className={`sidebar glass ${!showChatOnMobile && window.innerWidth <= 768 ? 'hide' : ''}`}>
-          <div className="sidebar-header">
-            <h3>{showViewersList ? 'Viewers' : 'Chat'}</h3>
-            <div style={{ display: 'flex', gap: '0.5rem' }}>
-              <button 
-                className={`btn btn-secondary ${showViewersList ? 'active' : ''}`}
-                onClick={() => setShowViewersList(!showViewersList)}
-                title="Toggle Viewers List"
-                style={{ padding: '0.25rem 0.5rem' }}
-              >
-                👥 {userCount}
-              </button>
+      {!isTheaterMode && (
+          <div className="chat-panel glass">
+            <div style={{ padding: '1rem', background: 'rgba(255,255,255,0.05)', borderBottom: '1px solid var(--border)', fontWeight: 600, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+               Live Chat
+               
+               <div style={{ position: 'relative' }}>
+                 <div 
+                    className="badge badge-primary" 
+                    style={{ cursor: 'pointer', userSelect: 'none', background: 'var(--primary)', color: 'white', padding: '0.2rem 0.5rem', borderRadius: '0.25rem', fontSize: '0.8rem' }}
+                    onClick={() => setShowViewersList(!showViewersList)}
+                 >
+                   👥 Viewers: {userCount}
+                 </div>
+                 
+                 {showViewersList && (
+                   <div className="glass" style={{
+                     position: 'absolute',
+                     top: '100%',
+                     right: 0,
+                     marginTop: '0.5rem',
+                     padding: '0.5rem',
+                     minWidth: '200px',
+                     borderRadius: '0.5rem',
+                     zIndex: 50,
+                     boxShadow: '0 4px 20px rgba(0,0,0,0.5)'
+                   }}>
+                     <h4 style={{ margin: '0 0 0.5rem 0', paddingBottom: '0.5rem', borderBottom: '1px solid rgba(255,255,255,0.1)', fontSize: '0.9rem' }}>In Room</h4>
+                     {usersList && usersList.length > 0 ? (
+                       <ul style={{ listStyle: 'none', padding: 0, margin: 0, maxHeight: '200px', overflowY: 'auto' }}>
+                          {usersList.map(u => (
+                            <li key={u.id} style={{ padding: '0.25rem 0', fontSize: '0.9rem', color: 'rgba(255,255,255,0.9)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                              <span>{u.nickname} {u.isHost ? '(Host)' : ''} {u.id === socket?.id ? '(You)' : ''}</span>
+                              {isOwner && u.id !== socket?.id && (
+                                <button 
+                                  onClick={() => {
+                                    if (socket) {
+                                       socket.emit('pass-host', { roomId, targetId: u.id });
+                                    }
+                                  }}
+                                  className="btn btn-primary"
+                                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.7rem' }}
+                                >
+                                  Make Host
+                                </button>
+                              )}
+                            </li>
+                          ))}
+                       </ul>
+                     ) : (
+                       <div style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.5)' }}>Only you</div>
+                     )}
+                   </div>
+                 )}
+               </div>
             </div>
-          </div>
-          
-          {showViewersList ? (
-            <div className="viewers-list" style={{ flex: 1, overflowY: 'auto', padding: '1rem' }}>
-              {usersList.map((u, i) => (
-                <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem', padding: '0.5rem', background: 'rgba(255,255,255,0.05)', borderRadius: '4px' }}>
-                  <div style={{ width: 8, height: 8, borderRadius: '50%', background: '#4ade80' }}></div>
-                  <span style={{ fontWeight: u.isHost ? 'bold' : 'normal' }}>
-                    {u.nickname} {u.isHost && <span style={{ color: 'var(--primary)', fontSize: '0.8rem', marginLeft: '0.25rem' }}>(Host)</span>}
-                  </span>
+            <div ref={chatContainerRef} style={{ flex: 1, overflowY: 'auto', padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+              {chatMessages.map((msg, idx) => (
+                <div key={idx} style={{ background: 'rgba(0,0,0,0.3)', padding: '0.5rem', borderRadius: '0.5rem' }}>
+                   <div style={{ fontSize: '0.8rem', color: 'var(--primary)', marginBottom: '0.2rem' }}>{msg.username}</div>
+                   <div style={{ fontSize: '0.9rem', wordBreak: 'break-word' }}>{msg.text}</div>
                 </div>
               ))}
             </div>
-          ) : (
-            <>
-              <div className="chat-messages" ref={chatContainerRef}>
-                {chatMessages.map((msg, i) => (
-                  <div key={i} className="chat-message">
-                    <div className="chat-meta">
-                      <span className="chat-username">{msg.username}</span>
-                      <span className="chat-time">{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                    </div>
-                    <div className="chat-text">{msg.text}</div>
-                  </div>
-                ))}
-              </div>
-
-              <form onSubmit={sendChatMessage} className="chat-input-container" style={{ padding: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
-                <input
-                  type="text"
-                  className="input-field"
-                  placeholder="Type a message..."
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  style={{ flex: 1 }}
+             <form onSubmit={sendChatMessage} style={{ padding: '1rem', borderTop: '1px solid var(--border)', display: 'flex', gap: '0.5rem' }}>
+                <input 
+                  type="text" 
+                  value={chatInput} 
+                  onChange={e => setChatInput(e.target.value)}
+                  className="input-field" 
+                  placeholder="Type a message..." 
+                  style={{ flex: 1, padding: '0.5rem', minWidth: 0 }} 
                 />
-                <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem' }}>Send</button>
-              </form>
-            </>
-          )}
-        </div>
-      )}
+                <button type="submit" className="btn btn-primary" style={{ padding: '0.5rem 1rem', flexShrink: 0, width: 'auto' }}>Send</button>
+             </form>
+          </div>
+        )}
+      </div>
 
       {showMediaSelector && (
         <MediaSelector 

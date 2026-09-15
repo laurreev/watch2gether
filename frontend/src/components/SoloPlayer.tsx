@@ -41,7 +41,11 @@ const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack 
             >
               <option value="1">ZXCServer 1</option>
               <option value="2">ZXCServer 2</option>
-              <option value="vidsrc">VidSrc</option>
+              <option value="3">VidSrc</option>
+              <option value="4">Vidlink</option>
+              <option value="5">Videasy</option>
+              <option value="6">2Embed</option>
+              <option value="7">Multiembed</option>
             </select>
           </div>
         </div>
@@ -50,11 +54,11 @@ const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack 
         {iframeUrl ? (
           <iframe
             src={iframeUrl}
-            frameBorder="0"
-            allow="autoplay; encrypted-media; fullscreen"
+            width="100%"
+            height="100%"
             allowFullScreen
-            className="solo-player-iframe"
-          ></iframe>
+            style={{ position: 'absolute', top: 0, left: 0, border: 'none', zIndex: 1 }}
+          />
         ) : (
           <div className="solo-player-loading">
             <div className="spinner"></div>

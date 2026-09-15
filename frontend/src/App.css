@@ -198,5 +198,6 @@
     margin-left: 0;
     width: 100%;
     padding-bottom: 60px; /* space for the bottom navbar */
+    padding-top: 60px; /* space for the top navbar */
   }
 }

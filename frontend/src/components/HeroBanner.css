@@ -114,7 +114,7 @@
 .meta-rating {
   font-size: 1.1rem;
   font-weight: 700;
-  color: #fff;
+  color: #fbbf24;
 }
 
 .meta-rating-sub {
@@ -231,25 +231,37 @@
     height: 90vh; /* Make it almost full screen */
   }
   .hero-content {
-    width: 95%;
+    width: 92%;
+    left: 4%;
+    top: auto;
     bottom: 5%;
+    transform: none;
+    height: 70%;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
   }
   .hero-title {
-    font-size: 16vw; /* Huge title */
+    font-size: 9vw;
   }
   .hero-meta {
-    font-size: 4vw;
+    font-size: 3.5vw;
   }
   .meta-rating {
-    font-size: 4.5vw;
+    font-size: 3.5vw;
   }
   .meta-type {
-    font-size: 4vw;
+    font-size: 3.5vw;
   }
   .hero-description {
-    font-size: 4vw;
+    font-size: 3.5vw;
     line-height: 1.4;
-    margin-bottom: 2rem;
+    margin-bottom: 1.5rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
   }
   .hero-actions {
     flex-direction: row;
@@ -257,11 +269,11 @@
   }
   .btn-zxc {
     flex: 1;
-    font-size: 4vw;
+    font-size: 1rem;
     padding: 0.8rem;
   }
   .btn-zxc .icon {
-    font-size: 4.5vw;
+    font-size: 1.2rem;
   }
   .hero-nav-btn {
     display: none; /* Hide manual scroll buttons on mobile */

@@ -7,6 +7,7 @@ import type { TabType } from './components/Sidebar';
 import NetflixHome from './components/NetflixHome';
 import NetflixDetails from './components/NetflixDetails';
 import type { MediaItem } from './components/NetflixHome';
+import { getMediaDetails } from './services/vaporpic';
 import './index.css';
 
 interface PublicRoom {
@@ -33,9 +34,11 @@ function App() {
 
   const [view, setView] = useState<'home' | 'details' | 'player' | 'rooms' | 'solo'>('home');
   const [activeTab, setActiveTab] = useState<TabType>('home');
+  const [isResolvingRoute, setIsResolvingRoute] = useState(true);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
   const [localPlayEp, setLocalPlayEp] = useState<number | undefined>(undefined);
   const [localPlaySeason, setLocalPlaySeason] = useState<number | undefined>(undefined);
+  const [localPlaySynced, setLocalPlaySynced] = useState(false);
 
   const [joinPromptTarget, setJoinPromptTarget] = useState<{ id: string, isPublic: boolean } | null>(null);
   const [joinPromptPassword, setJoinPromptPassword] = useState('');
@@ -79,6 +82,7 @@ function App() {
             setIsOwner(savedIsOwner);
             setRoomConfig({ isPublic: actualIsPublic, password: password ?? '' });
             setInRoom(true);
+            setView('player');
           } else {
             sessionStorage.removeItem('watch2gether_room');
           }
@@ -100,14 +104,84 @@ function App() {
       }
     };
     fetchRooms();
-    const interval = setInterval(fetchRooms, 3000);
+    const interval = setInterval(fetchRooms, 5000);
     return () => clearInterval(interval);
+  }, [inRoom, socketUrl]);
+
+  // Handle browser back/forward navigation for tabs and deep links
+  useEffect(() => {
+    const handleHashChange = async () => {
+      const hash = window.location.hash.replace('#', '');
+      
+      if (hash.startsWith('room/')) {
+        const targetId = hash.split('/')[1];
+        if (targetId && !inRoom) {
+          // Check if the user is the owner of this room (saved in sessionStorage)
+          const savedRoom = sessionStorage.getItem('watch2gether_room');
+          if (savedRoom) {
+            const saved = JSON.parse(savedRoom);
+            if (saved.id === targetId && saved.isOwner) {
+              // Owner refreshed — skip the password dialog, auto-rejoin handled by the sessionStorage effect
+              setIsResolvingRoute(false);
+              return;
+            }
+          }
+          // Otherwise prompt to join (for non-owners following a link)
+          setJoinPromptTarget({ id: targetId, isPublic: false });
+        }
+        setIsResolvingRoute(false);
+      } else if (hash.startsWith('details/') || hash.startsWith('solo/')) {
+        const parts = hash.split('/');
+        const typeStr = decodeURIComponent(parts[1]);
+        const idStr = parts[2];
+        if (idStr && typeStr) {
+          try {
+            const data = await getMediaDetails(idStr, typeStr);
+            if (data) {
+              const mapped: MediaItem = {
+                id: data.id,
+                title: data.title,
+                type: typeStr as any,
+                imageUrl: data.poster_url || 'https://via.placeholder.com/300x450/141414/ffffff?text=No+Image',
+                url: data.url,
+                originalUrl: data.originalUrl,
+                year: data.year,
+                overview: data.overview,
+                vote_average: data.vote_average,
+              };
+              setSelectedMedia(mapped);
+              if (hash.startsWith('details/')) {
+                setView('details');
+              } else {
+                setView('solo');
+              }
+            }
+          } catch (e) {
+             console.error('Failed to resolve deep link', e);
+          }
+        }
+        setIsResolvingRoute(false);
+      } else if (['home', 'search', 'movies', 'series', 'anime', 'kdrama'].includes(hash)) {
+        setActiveTab(hash as TabType);
+        setView('home');
+        setIsResolvingRoute(false);
+      } else {
+        // Default
+        setView('home');
+        setIsResolvingRoute(false);
+      }
+    };
+    
+    handleHashChange(); // Run on mount
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
   }, [inRoom]);
 
   const handleLeave = (errorMsg?: string) => {
     setInRoom(false);
     setRoomId('');
     setView('home');
+    window.location.hash = activeTab;
     sessionStorage.removeItem('watch2gether_room');
     if (typeof errorMsg === 'string') {
       setError(errorMsg);
@@ -121,12 +195,14 @@ function App() {
     setRoomId('');
     setInRoom(false);
     setView('solo');
+    window.location.hash = `solo/${encodeURIComponent(media.type)}/${media.id}`;
   };
 
-  const handleCreateRoom = (media: MediaItem, _isSynced: boolean, episode?: number, season?: number) => {
+  const handleCreateRoom = (media: MediaItem, isSynced: boolean, episode?: number, season?: number) => {
     setSelectedMedia(media);
     setLocalPlayEp(episode);
     setLocalPlaySeason(season);
+    setLocalPlaySynced(isSynced);
     setCreatePromptVisible(true);
   };
 
@@ -147,6 +223,7 @@ function App() {
     setInRoom(true);
     setView('player');
     setCreatePromptVisible(false);
+    window.location.hash = `room/${newRoomId}`;
   };
 
   const joinRoom = async (e?: React.FormEvent, directId?: string, isPublicClick: boolean = false) => {
@@ -190,8 +267,13 @@ function App() {
     setRoomConfig({ isPublic: isPublic, password: attemptedPassword });
     setInRoom(true);
     setView('player');
+    window.location.hash = `room/${targetId}`;
     setJoinPromptTarget(null);
   };
+
+  if (isResolvingRoute) {
+    return <div style={{ height: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#141414', color: 'white' }}>Loading...</div>;
+  }
 
   return (
     <div className="app-container">
@@ -201,6 +283,7 @@ function App() {
           onTabChange={(tab) => {
             setActiveTab(tab);
             setView('home');
+            window.location.hash = tab;
           }}
           activeUsers={activeUsers}
           nickname={nickname}
@@ -241,12 +324,13 @@ function App() {
           onWatch={(media) => {
             setSelectedMedia(media);
             setView('details');
+            window.location.hash = `details/${encodeURIComponent(media.type)}/${media.id}`;
           }} 
         />
       ) : view === 'details' && selectedMedia ? (
         <NetflixDetails 
           media={selectedMedia} 
-          onBack={() => setView('home')} 
+          onBack={() => { setView('home'); window.location.hash = activeTab; }} 
           onPlayLocal={handlePlayLocal}
           onCreateRoom={handleCreateRoom}
         />
@@ -264,21 +348,30 @@ function App() {
           initialMedia={selectedMedia || undefined}
           initialEpisode={localPlayEp}
           initialSeason={localPlaySeason}
+          initialSynced={localPlaySynced}
         />
       ) : view === 'solo' && selectedMedia ? (
         <SoloPlayer 
           media={selectedMedia}
           episode={localPlayEp}
           season={localPlaySeason}
-          onBack={() => setView('details')}
+          onBack={() => { setView('details'); window.location.hash = `details/${encodeURIComponent(selectedMedia.type)}/${selectedMedia.id}`; }}
         />
       ) : view === 'rooms' ? (
         <main className="join-container" style={{ paddingTop: '80px' }}>
           <div className="landing-grid">
             <div className="join-card glass">
               <button className="btn btn-secondary" onClick={() => setView('home')} style={{ marginBottom: '1rem' }}>← Back to Home</button>
+              <h2 className="join-title">Create a Room</h2>
+              <button
+                className="btn btn-primary"
+                style={{ width: '100%', background: '#e50914', marginBottom: '2rem' }}
+                onClick={() => { setLocalPlaySynced(false); setCreatePromptVisible(true); }}
+              >
+                + Create Room
+              </button>
+
               <h2 className="join-title">Join a Room</h2>
-              
               <form onSubmit={joinRoom} className="input-group">
                 <input
                   type="text"

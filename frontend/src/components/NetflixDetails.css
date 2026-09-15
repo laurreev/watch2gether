@@ -1,6 +1,7 @@
 .netflix-details {
   min-height: 100vh;
-  width: 100%;
+  width: calc(100% - 80px);
+  margin-left: 80px;
   background-color: #141414;
   color: #fff;
   z-index: 100;
@@ -88,9 +89,14 @@
   color: #e5e5e5;
 }
 
+.meta-rating {
+  color: #fbbf24;
+  font-weight: 600;
+}
+
 .details-genres {
   font-size: 0.9vw;
-  color: #a3a3a3;
+  color: #fff;
   margin-bottom: 1rem;
 }
 
@@ -101,9 +107,23 @@
   text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
 }
 
+.hero-actions-container {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 2rem;
+  flex-wrap: wrap;
+  width: 100%;
+}
+
 .details-actions {
   display: flex;
   gap: 1rem;
+  width: 100%;
+}
+
+.details-actions .btn-zxc {
+  flex: 1;
 }
 
 .btn-zxc {
@@ -139,17 +159,6 @@
   background-color: rgba(60, 60, 60, 0.8);
 }
 
-.details-episodes-section {
-  padding: 2rem 4%;
-}
-
-.episodes-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 1.5rem;
-}
-
 .season-select {
   background: #333;
   color: #fff;
@@ -157,80 +166,50 @@
   padding: 0.5rem;
   border-radius: 4px;
   font-size: 1rem;
+  flex: 1;
+  min-width: 0;
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
 }
 
-.episodes-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-  gap: 1rem;
-}
-
-.episode-card {
-  background: #2a2a2a;
-  border-radius: 4px;
-  padding: 1rem;
+.episode-selectors {
   display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: background 0.2s;
+  gap: 10px;
+  width: 100%;
 }
 
-.episode-card:hover {
-  background: #3a3a3a;
-}
 
-.episode-info {
-  display: flex;
-  flex-direction: column;
-}
 
-.ep-num {
-  font-size: 0.9rem;
-  color: #a3a3a3;
-}
-
-.ep-title {
-  font-size: 1rem;
-  font-weight: 500;
-}
-
-.episode-actions {
-  display: flex;
-  gap: 0.5rem;
-}
-
-.btn-ep {
-  background: #444;
-  border: none;
-  color: #fff;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 12px;
-}
-.btn-ep.play:hover { background: #fff; color: #000; }
-.btn-ep.room:hover { background: #3b82f6; }
-.btn-ep.room-sync:hover { background: #ef4444; }
 
 @media (max-width: 768px) {
+  .btn-back {
+    top: 80px; /* clear the top nav */
+    left: 1rem;
+  }
   .details-hero-content {
     width: 90%;
+    bottom: 80px; /* shift up above mobile nav */
   }
   .details-title { font-size: 6vw; }
-  .details-meta, .details-genres { font-size: 3vw; }
+  .details-meta, .details-genres { font-size: 3.5vw; }
   .details-overview { font-size: 3.5vw; }
   .details-actions {
     flex-direction: column;
+    width: 100%;
+  }
+  .details-actions .btn-zxc {
+    width: 100%;
   }
 }
 
 @media (max-width: 768px) {
   .details-container {
     padding-bottom: 80px; /* space for bottom nav */
+  }
+  .netflix-details {
+    margin-left: 0;
+    width: 100%;
   }
 }
 

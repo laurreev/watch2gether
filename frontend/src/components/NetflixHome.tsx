@@ -7,13 +7,14 @@ import './NetflixHome.css';
 export interface MediaItem {
   id: string;
   title: string;
-  type: 'Movie' | 'TV Show' | 'Anime' | 'Asian';
+  type: 'Movie' | 'Series' | 'Anime' | 'K-Drama';
   imageUrl: string;
   url?: string;
   originalUrl?: string;
   year?: string;
   overview?: string;
   vote_average?: number;
+  tmdb_type?: 'movie' | 'tv';
 }
 
 interface MediaRowProps {
@@ -105,7 +106,7 @@ const Top10Row: React.FC<{ onSelectItem: (item: MediaItem) => void }> = ({ onSel
       else res = await searchVaporpic('', 'tv', undefined, undefined, 1);
       
       if (mounted) {
-        const type = filter === 'TV' ? 'TV Show' : 'Movie';
+        const type = filter === 'TV' ? 'Series' : 'Movie';
         // Note: For 'All' we should ideally combine, but we'll use trending movies as a proxy for now
         // to simplify ZXCStream behavior matching.
         setItems(res.results.slice(0, 10).map((item: VaporpicMediaItem) => ({
@@ -143,7 +144,7 @@ const Top10Row: React.FC<{ onSelectItem: (item: MediaItem) => void }> = ({ onSel
       </div>
       <div className="row-container">
         <button className="row-nav left" onClick={() => scroll('left')}>&#8249;</button>
-        <div className="row-posters" ref={rowRef} style={{ paddingLeft: '4%', paddingRight: '4%' }}>
+        <div className="row-posters" ref={rowRef}>
           {items.map((item, index) => (
             <div 
               key={item.id} 
@@ -181,7 +182,7 @@ const PreviewModal: React.FC<{ media: MediaItem, onClose: () => void, onWatch: (
 
   useEffect(() => {
     let mounted = true;
-    getMediaDetailsAndTrailer(media.id, media.type).then(res => {
+    getMediaDetailsAndTrailer(media.id, media.type, media.tmdb_type).then(res => {
       if (mounted) setDetails(res);
     });
     return () => { mounted = false; };
@@ -228,12 +229,14 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
   const [searchResults, setSearchResults] = useState<MediaItem[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [gridMedia, setGridMedia] = useState<MediaItem[]>([]);
-  const [isGridLoading, setIsGridLoading] = useState(false);
   const [gridPage, setGridPage] = useState(1);
   const [hasMoreGrid, setHasMoreGrid] = useState(true);
+  const [isGridLoading, setIsGridLoading] = useState(false);
+  const isFetchingRef = useRef(false);
   const [selectedYear, setSelectedYear] = useState('');
   const [selectedGenre, setSelectedGenre] = useState('');
   const [selectedRating, setSelectedRating] = useState('');
+  const [showBackToTop, setShowBackToTop] = useState(false);
 
   // Search defaults Search State
   const popularSearches = ["The End of Oak Street", "Lanterns", "Moana", "SpongeBob", "Resident Evil", "Silo", "Bleach", "Obsession", "The Gentlemen", "One Piece"];
@@ -249,15 +252,16 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
       id: item.id,
       title: item.title,
       type: item.media_type === 'movie' ? 'Movie' : 
-            item.media_type === 'tv' ? 'TV Show' : 
+            item.media_type === 'tv' ? 'Series' : 
             item.media_type === 'anime' ? 'Anime' : 
-            item.media_type === 'asian' ? 'Asian' : defaultType,
+            item.media_type === 'kdrama' ? 'K-Drama' : defaultType,
       imageUrl: item.poster_url || 'https://via.placeholder.com/300x450/141414/ffffff?text=No+Image',
       url: item.url,
       originalUrl: item.originalUrl,
       year: item.year,
       overview: item.overview,
       vote_average: item.vote_average,
+      tmdb_type: item.tmdb_type,
     }));
   };
 
@@ -277,7 +281,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
           if (mounted) {
             setDefaultHorror(mapResults(hRes.results, 'Movie'));
             setDefaultSciFi(mapResults(sRes.results, 'Movie'));
-            setDefaultDrama(mapResults(dRes.results, 'TV Show'));
+            setDefaultDrama(mapResults(dRes.results, 'Series'));
             setDefaultThriller(mapResults(tRes.results, 'Movie'));
             setDefaultAction(mapResults(aRes.results, 'Movie'));
             setDefaultComedy(mapResults(cRes.results, 'Movie'));
@@ -292,7 +296,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
 
 
   const fetchTrendingMovies = async () => mapResults((await searchVaporpic('', 'movie', undefined, undefined, 1)).results, 'Movie');
-  const fetchTrendingTV = async () => mapResults((await searchVaporpic('', 'tv', undefined, undefined, 1)).results, 'TV Show');
+  const fetchTrendingTV = async () => mapResults((await searchVaporpic('', 'tv', undefined, undefined, 1)).results, 'Series');
   const fetchPopularAnime = async () => mapResults((await searchVaporpic('', 'anime', undefined, undefined, 1)).results, 'Anime');
   const fetchActionMovies = async () => mapResults((await searchVaporpic('', 'movie', 'action', undefined, 1)).results, 'Movie');
   const fetchComedies = async () => mapResults((await searchVaporpic('', 'movie', 'comedy', undefined, 1)).results, 'Movie');
@@ -320,21 +324,28 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
     if (activeTab === 'home' || activeTab === 'search') return;
     let mounted = true;
     setIsGridLoading(true);
+    isFetchingRef.current = true;
 
     let fetchPromise: Promise<any>;
     if (activeTab === 'movies') fetchPromise = searchVaporpic('', 'movie', selectedGenre || undefined, selectedYear || undefined, gridPage, undefined, selectedRating || undefined);
     else if (activeTab === 'series') fetchPromise = searchVaporpic('', 'tv', selectedGenre || undefined, selectedYear || undefined, gridPage, undefined, selectedRating || undefined);
     else if (activeTab === 'anime') fetchPromise = searchVaporpic('', 'anime', undefined, undefined, gridPage);
-    else if (activeTab === 'asian') fetchPromise = searchVaporpic('', 'asian', undefined, undefined, gridPage);
+    else if (activeTab === 'kdrama') fetchPromise = searchVaporpic('', 'kdrama', selectedGenre || undefined, selectedYear || undefined, gridPage, undefined, selectedRating || undefined);
     else fetchPromise = Promise.resolve({ results: [], total_pages: 1 });
 
     fetchPromise.then(res => {
       if (mounted) {
-        const typeLabel = activeTab === 'movies' ? 'Movie' : activeTab === 'series' ? 'TV Show' : activeTab === 'anime' ? 'Anime' : 'Asian';
+        const typeLabel = activeTab === 'movies' ? 'Movie' : activeTab === 'series' ? 'Series' : activeTab === 'anime' ? 'Anime' : 'K-Drama';
         const mapped = mapResults(res.results, typeLabel);
-        setGridMedia(prev => gridPage === 1 ? mapped : [...prev, ...mapped]);
-        if (res.results.length < 20) setHasMoreGrid(false);
+        setGridMedia(prev => {
+          if (gridPage === 1) return mapped;
+          const existingIds = new Set(prev.map(item => item.id + item.type));
+          const newItems = mapped.filter(item => !existingIds.has(item.id + item.type));
+          return [...prev, ...newItems];
+        });
+        if (gridPage >= (res.total_pages || 1)) setHasMoreGrid(false);
         setIsGridLoading(false);
+        isFetchingRef.current = false;
       }
     });
 
@@ -349,12 +360,35 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
 
   const handleScroll = (e: React.UIEvent<HTMLDivElement>) => {
     const { scrollTop, clientHeight, scrollHeight } = e.currentTarget;
-    if (scrollHeight - scrollTop <= clientHeight + 250 && !isGridLoading && hasMoreGrid) {
+    setShowBackToTop(scrollTop > 400);
+    if (scrollHeight - scrollTop <= clientHeight + 800 && !isFetchingRef.current && hasMoreGrid) {
       if (activeTab !== 'home' && activeTab !== 'search') {
+        isFetchingRef.current = true;
         setGridPage(prev => prev + 1);
       }
     }
   };
+
+  const scrollToTop = () => {
+    const elements = document.getElementsByClassName('netflix-home');
+    if (elements.length > 0) {
+      elements[0].scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  const renderBackToTop = () => (
+    showBackToTop && (
+      <button 
+        onClick={scrollToTop}
+        className="back-to-top-btn"
+        aria-label="Back to top"
+      >
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="m18 15-6-6-6 6"/>
+        </svg>
+      </button>
+    )
+  );
 
   useEffect(() => {
     const delayDebounce = setTimeout(async () => {
@@ -368,7 +402,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
           ]);
           const combined = [
             ...mapResults(movieRes.results, 'Movie'),
-            ...mapResults(tvRes.results, 'TV Show'),
+            ...mapResults(tvRes.results, 'Series'),
             ...mapResults(animeRes.results, 'Anime')
           ];
           setSearchResults(combined);
@@ -410,12 +444,17 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
   if (activeTab === 'search') {
     return (
       <div className="netflix-home" onScroll={handleScroll}>
-        <div className="search-bar-container">
-          <span className="search-icon">🔍</span>
+        <div className="netflix-search-bar">
+          <span className="search-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="11" cy="11" r="8"/>
+              <path d="m21 21-4.3-4.3"/>
+            </svg>
+          </span>
           <input 
             type="text" 
             className="search-bar-input" 
-            placeholder="Search movies, TV shows, anime..." 
+            placeholder="Search movies, series, anime..." 
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             autoFocus
@@ -544,6 +583,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
             onWatch={(m) => { setPreviewMedia(null); onWatch(m); }} 
           />
         )}
+        {renderBackToTop()}
       </div>
     );
   }
@@ -554,11 +594,10 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
         <div className="search-results-container" style={{ minHeight: '100vh', paddingTop: '50px' }}>
           <div className="tab-header-container" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', paddingLeft: '4%', paddingRight: '4%', marginBottom: '20px' }}>
             <h2 className="row-title" style={{ textTransform: 'capitalize', fontSize: '2rem', margin: 0, padding: 0 }}>
-              {activeTab}
+              {activeTab === 'kdrama' ? 'K-Drama' : activeTab}
             </h2>
             
-            {(activeTab === 'movies' || activeTab === 'series') && (
-              <div className="movie-filters">
+            <div className="movie-filters">
                 <select 
                   className="filter-dropdown"
                   style={{ background: 'rgba(255,255,255,0.1)', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px', cursor: 'pointer', outline: 'none' }}
@@ -598,7 +637,6 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
                   <option value="5" style={{ color: 'black' }}>5+</option>
                 </select>
               </div>
-            )}
           </div>
           
           {isGridLoading && gridPage === 1 ? (
@@ -645,18 +683,19 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
             onWatch={(m) => { setPreviewMedia(null); onWatch(m); }} 
           />
         )}
+        {renderBackToTop()}
       </div>
     );
   }
 
   return (
     <div className="netflix-home" onScroll={handleScroll}>
-      <HeroBanner mediaItems={heroMedia} onWatch={() => {}} />
+      <HeroBanner mediaItems={heroMedia} onWatch={onWatch} />
       
       <div className="netflix-rows-container">
         <Top10Row onSelectItem={setPreviewMedia} />
         <MediaRow title="Trending Movies" fetchData={fetchTrendingMovies} onSelectItem={setPreviewMedia} />
-        <MediaRow title="Trending TV Shows" fetchData={fetchTrendingTV} onSelectItem={setPreviewMedia} />
+        <MediaRow title="Trending Series" fetchData={fetchTrendingTV} onSelectItem={setPreviewMedia} />
         <MediaRow title="Popular Anime" fetchData={fetchPopularAnime} onSelectItem={setPreviewMedia} />
         <MediaRow title="Action Packed" fetchData={fetchActionMovies} onSelectItem={setPreviewMedia} />
         <MediaRow title="Comedies" fetchData={fetchComedies} onSelectItem={setPreviewMedia} />
@@ -669,6 +708,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
           onWatch={(m) => { setPreviewMedia(null); onWatch(m); }} 
         />
       )}
+      {renderBackToTop()}
     </div>
   );
 };

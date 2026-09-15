@@ -149,6 +149,10 @@
   background: rgba(255,255,255,0.15);
 }
 
+.mobile-top-nav {
+  display: none;
+}
+
 @media (max-width: 768px) {
   .sidebar-nav {
     width: 100vw;
@@ -159,6 +163,57 @@
     flex-direction: row;
     padding: 0;
     z-index: 1000;
+  }
+  
+  .mobile-top-nav {
+    display: flex;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 60px;
+    background: rgba(15, 15, 15, 0.95);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    z-index: 1000;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+  }
+  
+  .hamburger-btn {
+    background: transparent;
+    border: none;
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 5px;
+  }
+  
+  .mobile-dropdown-menu {
+    position: absolute;
+    top: 60px;
+    right: 10px;
+    background: rgba(20, 20, 20, 0.98);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 8px;
+    padding: 10px 0;
+    min-width: 150px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .mobile-dropdown-item {
+    padding: 12px 20px;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  
+  .mobile-dropdown-item:hover {
+    background: rgba(255,255,255,0.1);
   }
   .sidebar-nav:hover {
     width: 100vw;
