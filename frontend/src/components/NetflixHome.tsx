@@ -329,7 +329,7 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
     let fetchPromise: Promise<any>;
     if (activeTab === 'movies') fetchPromise = searchVaporpic('', 'movie', selectedGenre || undefined, selectedYear || undefined, gridPage, undefined, selectedRating || undefined);
     else if (activeTab === 'series') fetchPromise = searchVaporpic('', 'tv', selectedGenre || undefined, selectedYear || undefined, gridPage, undefined, selectedRating || undefined);
-    else if (activeTab === 'anime') fetchPromise = searchVaporpic('', 'anime', undefined, undefined, gridPage);
+    else if (activeTab === 'anime') fetchPromise = searchVaporpic('', 'anime', selectedGenre || undefined, selectedYear || undefined, gridPage, undefined, selectedRating || undefined);
     else if (activeTab === 'kdrama') fetchPromise = searchVaporpic('', 'kdrama', selectedGenre || undefined, selectedYear || undefined, gridPage, undefined, selectedRating || undefined);
     else fetchPromise = Promise.resolve({ results: [], total_pages: 1 });
 
@@ -618,7 +618,10 @@ const NetflixHome: React.FC<NetflixHomeProps> = ({ activeTab, onWatch }) => {
                   onChange={e => { setSelectedGenre(e.target.value); setGridPage(1); setGridMedia([]); }}
                 >
                   <option value="" style={{ color: 'black' }}>All Genres</option>
-                  {['Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller'].map(genre => (
+                  {(activeTab === 'anime' 
+                    ? ['Action', 'Adventure', 'Comedy', 'Drama', 'Fantasy', 'Harem', 'Horror', 'Isekai', 'Josei', 'Mystery', 'Romance', 'Sci-Fi', 'Seinen', 'Shonen', 'Shojo', 'Slice of Life']
+                    : ['Action', 'Adventure', 'Animation', 'Comedy', 'Crime', 'Documentary', 'Drama', 'Family', 'Fantasy', 'Horror', 'Mystery', 'Romance', 'Sci-Fi', 'Thriller']
+                  ).map(genre => (
                     <option key={genre} value={genre} style={{ color: 'black' }}>{genre}</option>
                   ))}
                 </select>

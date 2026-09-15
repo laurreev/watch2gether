@@ -43,6 +43,25 @@ const genreMap: Record<string, number[]> = {
   'western': [37],
 };
 
+const animeFilters: Record<string, { type: 'genre' | 'keyword', id: number }> = {
+  'action': { type: 'genre', id: 10759 },
+  'adventure': { type: 'genre', id: 10759 },
+  'comedy': { type: 'genre', id: 35 },
+  'drama': { type: 'genre', id: 18 },
+  'fantasy': { type: 'genre', id: 10765 },
+  'harem': { type: 'keyword', id: 9194 },
+  'horror': { type: 'keyword', id: 315058 },
+  'isekai': { type: 'keyword', id: 237451 },
+  'josei': { type: 'keyword', id: 229074 },
+  'mystery': { type: 'genre', id: 9648 },
+  'romance': { type: 'keyword', id: 9840 },
+  'sci-fi': { type: 'genre', id: 10765 },
+  'seinen': { type: 'keyword', id: 195668 },
+  'shonen': { type: 'keyword', id: 207826 },
+  'shojo': { type: 'keyword', id: 206437 },
+  'slice of life': { type: 'keyword', id: 9914 },
+};
+
 export const searchVaporpic = async (query: string, type: string, genre?: string, year?: string, page: number = 1, signal?: AbortSignal, rating?: string): Promise<VaporpicSearchResponse> => {
   try {
     if (!TMDB_API_KEY) {
@@ -57,8 +76,23 @@ export const searchVaporpic = async (query: string, type: string, genre?: string
     if (query.trim() === '') {
       // If empty query, fetch trending or discover
       if (type === 'anime') {
-         url = `https://api.themoviedb.org/3/discover/tv?with_genres=16&with_original_language=ja&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
+         url = `https://api.themoviedb.org/3/discover/tv?with_original_language=ja&sort_by=popularity.desc`;
+         let genres = '16'; // Base animation genre
+         if (genre) {
+             const lowerGenre = genre.toLowerCase();
+             const filter = animeFilters[lowerGenre];
+             if (filter) {
+                 if (filter.type === 'genre') {
+                     genres += `,${filter.id}`;
+                 } else if (filter.type === 'keyword') {
+                     url += `&with_keywords=${filter.id}`;
+                 }
+             }
+         }
+         url += `&with_genres=${genres}`;
          if (year) url += `&first_air_date_year=${year}`;
+         if (rating) url += `&vote_average.gte=${rating}`;
+         url += `&api_key=${TMDB_API_KEY}`;
       } else if (type === 'kdrama') {
          let tvUrl = `https://api.themoviedb.org/3/discover/tv?with_original_language=ko&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;
          let movieUrl = `https://api.themoviedb.org/3/discover/movie?with_original_language=ko&sort_by=popularity.desc&api_key=${TMDB_API_KEY}`;

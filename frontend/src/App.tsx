@@ -366,7 +366,7 @@ function App() {
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', background: '#e50914', marginBottom: '2rem' }}
-                onClick={() => { setLocalPlaySynced(false); setCreatePromptVisible(true); }}
+                onClick={() => { setSelectedMedia(null); setLocalPlaySynced(false); setCreatePromptVisible(true); }}
               >
                 + Create Room
               </button>

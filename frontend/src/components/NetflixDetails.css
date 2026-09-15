@@ -189,7 +189,7 @@
   }
   .details-hero-content {
     width: 90%;
-    bottom: 80px; /* shift up above mobile nav */
+    bottom: calc(80px + env(safe-area-inset-bottom)); /* shift up above mobile nav */
   }
   .details-title { font-size: 6vw; }
   .details-meta, .details-genres { font-size: 3.5vw; }
@@ -205,7 +205,7 @@
 
 @media (max-width: 768px) {
   .details-container {
-    padding-bottom: 80px; /* space for bottom nav */
+    padding-bottom: calc(80px + env(safe-area-inset-bottom)); /* space for bottom nav */
   }
   .netflix-details {
     margin-left: 0;
@@ -215,4 +215,5 @@
 
 .details-hero.movie-hero {
   height: 100vh;
+  height: 100dvh;
 }
