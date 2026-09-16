@@ -103,3 +103,13 @@
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
+
+/* Hide header on mobile landscape to simulate true fullscreen */
+@media (max-height: 500px) and (orientation: landscape) {
+  .solo-player-header {
+    display: none;
+  }
+  .solo-player-video-wrapper {
+    height: 100vh;
+  }
+}
