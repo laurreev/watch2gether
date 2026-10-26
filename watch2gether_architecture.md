@@ -46,11 +46,11 @@ With the new architecture, generating a video stream is instant and requires **z
 *   **Server 2 (ZXCServer 2 / Vidstuck):** `https://vidstuck.cc/player/movie/{tmdbId}`
 *   **Server 3 (VidSrc):** `https://vidsrc.me/embed/movie?tmdb={tmdbId}`
 *   **Server 4 (Vidlink):** `https://vidlink.pro/movie/{tmdbId}` (Optimized for Anime)
-*   **Server 5 (VixSrc):** `https://vixsrc.to/movie/{tmdbId}`
-*   **Server 6 (SmashyStream):** `https://embed.smashystream.com/playere.php?tmdb={tmdbId}`
+*   **Server 5 (CineSrc):** `https://cinesrc.st/embed/movie/{tmdbId}`
+*   **Server 6 (VidSrc TO):** `https://vidsrc.to/embed/movie/{tmdbId}`
 *   **Server 7 (VidSrc PM):** `https://vidsrc.pm/embed/movie/{tmdbId}`
 
-TV Show routing dynamically injects the season and episode parameters depending on the active server format (e.g., `/tv/{id}/{s}/{e}` for ZXCStream/Vidstuck/Vidlink/VixSrc, or `&season={s}&episode={e}` for VidSrc).
+TV Show routing dynamically injects the season and episode parameters depending on the active server format (e.g., `/tv/{id}/{s}/{e}` for ZXCStream/Vidstuck/Vidlink/VidSrc, or `?s={s}&e={e}` for CineSrc).
 
 ### 5. Media Synchronization 
 

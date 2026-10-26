@@ -342,20 +342,20 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
         return `https://vidlink.pro/movie/${tmdbId}`;
     }
 
-    // Server 5: VixSrc (Fast & High Quality)
+    // Server 5: CineSrc (Unblocked, Fast & Subtitles)
     if (server === '5') {
         if (ep !== undefined && ep !== null) {
-            return `https://vixsrc.to/tv/${tmdbId}/${seasonNum}/${ep}`;
+            return `https://cinesrc.st/embed/tv/${tmdbId}?s=${seasonNum}&e=${ep}`;
         }
-        return `https://vixsrc.to/movie/${tmdbId}`;
+        return `https://cinesrc.st/embed/movie/${tmdbId}`;
     }
 
-    // Server 6: SmashyStream (Multi-Source JoltLink)
+    // Server 6: VidSrc TO (Reliable VidSrc Provider)
     if (server === '6') {
         if (ep !== undefined && ep !== null) {
-            return `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
+            return `https://vidsrc.to/embed/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}`;
+        return `https://vidsrc.to/embed/movie/${tmdbId}`;
     }
     
     // Server 7: VidSrc PM (VidSrc Mirror)
