@@ -310,23 +310,23 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
     const tmdbId = url;
     const seasonNum = season || 1;
     
-    // Server 1: ZXCStream (Embed) (previously 6)
+    // Server 1: ZXCServer 1 (ZXCStream Main Player)
     if (server === '1') {
         if (ep !== undefined && ep !== null) {
-            return `https://embed.zxcstream.xyz/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+            return `https://zxcstream.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://embed.zxcstream.xyz/player/movie/${tmdbId}`;
+        return `https://zxcstream.cc/player/movie/${tmdbId}`;
     }
 
-    // Server 2: ZXCStream (ICU) (previously 7)
+    // Server 2: ZXCServer 2 (Vidstuck Mirror / Multi-Subtitles)
     if (server === '2') {
         if (ep !== undefined && ep !== null) {
-            return `https://zxcstream.icu/watch/tv/${tmdbId}/${seasonNum}/${ep}`;
+            return `https://vidstuck.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://zxcstream.icu/watch/movie/${tmdbId}`;
+        return `https://vidstuck.cc/player/movie/${tmdbId}`;
     }
 
-    // Server 3: Vidsrc (previously 1)
+    // Server 3: VidSrc (vidsrc.me)
     if (server === '3') {
         if (ep !== undefined && ep !== null) {
             return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
@@ -334,7 +334,7 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
         return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
     }
 
-    // Server 4: Vidlink (Anime/HD)
+    // Server 4: Vidlink (Anime & HD)
     if (server === '4') {
         if (ep !== undefined && ep !== null) {
             return `https://vidlink.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
@@ -342,35 +342,35 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
         return `https://vidlink.pro/movie/${tmdbId}`;
     }
 
-    // Server 5: Videasy
+    // Server 5: VixSrc (Fast & High Quality)
     if (server === '5') {
         if (ep !== undefined && ep !== null) {
-            return `https://player.videasy.to/tv/${tmdbId}/${seasonNum}/${ep}`;
+            return `https://vixsrc.to/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://player.videasy.to/movie/${tmdbId}`;
+        return `https://vixsrc.to/movie/${tmdbId}`;
     }
 
-    // Server 6: 2Embed (previously 2)
+    // Server 6: SmashyStream (Multi-Source JoltLink)
     if (server === '6') {
         if (ep !== undefined && ep !== null) {
-            return `https://www.2embed.cc/embedtv/${tmdbId}&s=${seasonNum}&e=${ep}`;
+            return `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
         }
-        return `https://www.2embed.cc/embed/${tmdbId}`;
+        return `https://embed.smashystream.com/playere.php?tmdb=${tmdbId}`;
     }
     
-    // Server 7: Multiembed (previously 3)
+    // Server 7: VidSrc PM (VidSrc Mirror)
     if (server === '7') {
         if (ep !== undefined && ep !== null) {
-            return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1&s=${seasonNum}&e=${ep}`;
+            return `https://vidsrc.pm/embed/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://multiembed.mov/?video_id=${tmdbId}&tmdb=1`;
+        return `https://vidsrc.pm/embed/movie/${tmdbId}`;
     }
 
     // default fallback (ZXCStream)
     if (ep !== undefined && ep !== null) {
-        return `https://embed.zxcstream.xyz/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+        return `https://zxcstream.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
     }
-    return `https://embed.zxcstream.xyz/player/movie/${tmdbId}`;
+    return `https://zxcstream.cc/player/movie/${tmdbId}`;
 };
 
 export interface MediaDetails {

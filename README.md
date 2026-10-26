@@ -24,7 +24,7 @@ Watch2gether is a powerful, lightweight synchronized media player built for watc
 * **📜 Infinite Scrolling**: Seamless, paginated TMDB browsing experience.
 * **📺 Anime & Asian Drama Support**: Specialized discover tabs instantly pull culturally specific trending content natively.
 * **⚡ Blazing Fast**: Zero backend processing! Search and streaming resolution happens 100% on the client side without headless browsers or heavy server loads.
-* **🛡️ Redundant Streaming**: Automatically generates standard embed links across four independent providers (Vidsrc, 2Embed, Multiembed, and Vidlink for Anime) to stream high-quality video instantly in native iframes.
+* **🛡️ Redundant Streaming**: Automatically generates standard embed links across multiple independent providers (ZXCStream, Vidstuck, VidSrc, Vidlink, VixSrc, SmashyStream, and VidSrc PM) to stream high-quality video instantly in native iframes.
 * **🍿 Binge-Ready Player**: An embedded Season/Episode picker mounts directly below the player, allowing instant switching without reopening search menus.
 * **💬 Live Text Chat**: Integrated scrolling chat panel allowing users to coordinate watch parties with ease.
 * **🎭 Theater Mode**: One-click immersive viewing that hides all extra UI for a cinematic experience.

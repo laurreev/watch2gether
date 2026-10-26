@@ -43,9 +43,9 @@ const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack 
               <option value="2">ZXCServer 2</option>
               <option value="3">VidSrc</option>
               <option value="4">Vidlink</option>
-              <option value="5">Videasy</option>
-              <option value="6">2Embed</option>
-              <option value="7">Multiembed</option>
+              <option value="5">VixSrc</option>
+              <option value="6">SmashyStream</option>
+              <option value="7">VidSrc PM</option>
             </select>
           </div>
         </div>

@@ -41,13 +41,16 @@ The actual video playback leverages **Vidsrc**, a stateless video embed provider
 ### The Magic of Stateless Embeds
 Previously, the app required a heavy Python backend to reverse-engineer Cloudflare protections and generate complex AES-GCM encrypted tokens for Fmovies. 
 
-With the new architecture, generating a video stream is instant and requires **zero encryption overhead**. The frontend relies on four redundant, stateless embed networks:
-*   **Server 1 (Vidsrc ME):** `https://vidsrc.me/embed/movie?tmdb={tmdbId}`
-*   **Server 2 (2Embed):** `https://www.2embed.cc/embed/{tmdbId}`
-*   **Server 3 (Multiembed):** `https://multiembed.mov/?video_id={tmdbId}&tmdb=1`
+With the new architecture, generating a video stream is instant and requires **zero encryption overhead**. The frontend relies on redundant, stateless embed networks:
+*   **Server 1 (ZXCServer 1 / ZXCStream):** `https://zxcstream.cc/player/movie/{tmdbId}`
+*   **Server 2 (ZXCServer 2 / Vidstuck):** `https://vidstuck.cc/player/movie/{tmdbId}`
+*   **Server 3 (VidSrc):** `https://vidsrc.me/embed/movie?tmdb={tmdbId}`
 *   **Server 4 (Vidlink):** `https://vidlink.pro/movie/{tmdbId}` (Optimized for Anime)
+*   **Server 5 (VixSrc):** `https://vixsrc.to/movie/{tmdbId}`
+*   **Server 6 (SmashyStream):** `https://embed.smashystream.com/playere.php?tmdb={tmdbId}`
+*   **Server 7 (VidSrc PM):** `https://vidsrc.pm/embed/movie/{tmdbId}`
 
-TV Show routing dynamically injects the season and episode parameters depending on the active server format (e.g., `&season={s}&episode={e}` for Vidsrc, or `&s={s}&e={e}` for 2Embed and Multiembed).
+TV Show routing dynamically injects the season and episode parameters depending on the active server format (e.g., `/tv/{id}/{s}/{e}` for ZXCStream/Vidstuck/Vidlink/VixSrc, or `&season={s}&episode={e}` for VidSrc).
 
 ### 5. Media Synchronization 
 
