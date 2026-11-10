@@ -7,6 +7,8 @@ import type { TabType } from './components/Sidebar';
 import NetflixHome from './components/NetflixHome';
 import NetflixDetails from './components/NetflixDetails';
 import type { MediaItem } from './components/NetflixHome';
+import TelevisionView from './components/TelevisionView';
+import type { TvChannel } from './services/television';
 import { getMediaDetails } from './services/vaporpic';
 import './index.css';
 
@@ -32,10 +34,11 @@ function App() {
   const [isCreatingPublic, setIsCreatingPublic] = useState(true);
 
 
-  const [view, setView] = useState<'home' | 'details' | 'player' | 'rooms' | 'solo'>('home');
+  const [view, setView] = useState<'home' | 'details' | 'player' | 'rooms' | 'solo' | 'television'>('home');
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isResolvingRoute, setIsResolvingRoute] = useState(true);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
+  const [selectedLiveChannel, setSelectedLiveChannel] = useState<TvChannel | null>(null);
   const [localPlayEp, setLocalPlayEp] = useState<number | undefined>(undefined);
   const [localPlaySeason, setLocalPlaySeason] = useState<number | undefined>(undefined);
   const [localPlaySynced, setLocalPlaySynced] = useState(false);
@@ -161,6 +164,12 @@ function App() {
           }
         }
         setIsResolvingRoute(false);
+      } else if (hash === 'television') {
+        setView('television');
+        setIsResolvingRoute(false);
+      } else if (hash === 'rooms') {
+        setView('rooms');
+        setIsResolvingRoute(false);
       } else if (['home', 'search', 'movies', 'series', 'anime', 'kdrama'].includes(hash)) {
         setActiveTab(hash as TabType);
         setView('home');
@@ -180,6 +189,7 @@ function App() {
   const handleLeave = (errorMsg?: string) => {
     setInRoom(false);
     setRoomId('');
+    setSelectedLiveChannel(null);
     setView('home');
     window.location.hash = activeTab;
     sessionStorage.removeItem('watch2gether_room');
@@ -189,6 +199,7 @@ function App() {
   };
 
   const handlePlayLocal = (media: MediaItem, episode?: number, season?: number) => {
+    setSelectedLiveChannel(null);
     setSelectedMedia(media);
     setLocalPlayEp(episode);
     setLocalPlaySeason(season);
@@ -199,10 +210,20 @@ function App() {
   };
 
   const handleCreateRoom = (media: MediaItem, isSynced: boolean, episode?: number, season?: number) => {
+    setSelectedLiveChannel(null);
     setSelectedMedia(media);
     setLocalPlayEp(episode);
     setLocalPlaySeason(season);
     setLocalPlaySynced(isSynced);
+    setCreatePromptVisible(true);
+  };
+
+  const handleWatchTvTogether = (channel: TvChannel) => {
+    setSelectedMedia(null);
+    setSelectedLiveChannel(channel);
+    setLocalPlayEp(undefined);
+    setLocalPlaySeason(undefined);
+    setLocalPlaySynced(false);
     setCreatePromptVisible(true);
   };
 
@@ -279,7 +300,7 @@ function App() {
     <div className="app-container">
       {nickname && view !== 'player' && view !== 'solo' && (
         <Sidebar 
-          activeTab={view === 'rooms' ? ('rooms' as any) : activeTab}
+          activeTab={view === 'rooms' ? 'rooms' : view === 'television' ? 'television' : activeTab}
           onTabChange={(tab) => {
             setActiveTab(tab);
             setView('home');
@@ -287,7 +308,14 @@ function App() {
           }}
           activeUsers={activeUsers}
           nickname={nickname}
-          onOpenRooms={() => setView('rooms')}
+          onOpenRooms={() => {
+            setView('rooms');
+            window.location.hash = 'rooms';
+          }}
+          onOpenTelevision={() => {
+            setView('television');
+            window.location.hash = 'television';
+          }}
         />
       )}
 
@@ -334,6 +362,8 @@ function App() {
           onPlayLocal={handlePlayLocal}
           onCreateRoom={handleCreateRoom}
         />
+      ) : view === 'television' ? (
+        <TelevisionView onWatchTogether={handleWatchTvTogether} />
       ) : view === 'player' ? (
         <ScreenShare
           roomId={roomId}
@@ -345,7 +375,22 @@ function App() {
             sessionStorage.setItem('watch2gether_room', JSON.stringify({ ...saved, isOwner: isHost }));
           }}
           roomConfig={roomConfig}
-          initialMedia={selectedMedia || undefined}
+          initialMedia={
+            selectedLiveChannel
+              ? {
+                  id: selectedLiveChannel.id,
+                  title: selectedLiveChannel.name,
+                  type: 'Live TV',
+                  imageUrl: selectedLiveChannel.logo,
+                  url: selectedLiveChannel.streams[0]?.url || '',
+                  streams: selectedLiveChannel.streams,
+                  country: selectedLiveChannel.country,
+                  countryName: selectedLiveChannel.countryName,
+                  flag: selectedLiveChannel.flag,
+                  primaryCategory: selectedLiveChannel.primaryCategory,
+                }
+              : selectedMedia || undefined
+          }
           initialEpisode={localPlayEp}
           initialSeason={localPlaySeason}
           initialSynced={localPlaySynced}
@@ -366,7 +411,7 @@ function App() {
               <button
                 className="btn btn-primary"
                 style={{ width: '100%', background: '#e50914', marginBottom: '2rem' }}
-                onClick={() => { setSelectedMedia(null); setLocalPlaySynced(false); setCreatePromptVisible(true); }}
+                onClick={() => { setSelectedMedia(null); setSelectedLiveChannel(null); setLocalPlaySynced(false); setCreatePromptVisible(true); }}
               >
                 + Create Room
               </button>
@@ -417,6 +462,12 @@ function App() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.8)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 9999 }}>
           <form className="glass" style={{ padding: '2rem', borderRadius: '1rem', width: '100%', maxWidth: '400px' }} onSubmit={confirmCreateRoom}>
             <h2 style={{ marginTop: 0 }}>Create Room</h2>
+            {selectedLiveChannel && (
+              <div style={{ marginBottom: '1rem', padding: '0.6rem 0.85rem', borderRadius: '0.6rem', background: 'rgba(99, 102, 241, 0.16)', border: '1px solid rgba(99, 102, 241, 0.35)', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                <span>📺</span>
+                <span>Live TV: <strong>{selectedLiveChannel.flag} {selectedLiveChannel.name}</strong></span>
+              </div>
+            )}
             <div style={{ marginBottom: '1rem' }}>
               <label style={{ display: 'block', marginBottom: '0.5rem' }}>Room Visibility</label>
               <div style={{ display: 'flex', gap: '1rem' }}>

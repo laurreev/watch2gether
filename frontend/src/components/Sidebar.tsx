@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import './Sidebar.css';
 
 export type TabType = 'home' | 'search' | 'movies' | 'series' | 'anime' | 'kdrama';
+export type SidebarActiveTab = TabType | 'rooms' | 'television';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -53,6 +54,14 @@ const AsianIcon = () => (
   </svg>
 );
 
+const TelevisionIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <rect width="20" height="15" x="2" y="7" rx="2" ry="2"/>
+    <polyline points="17 2 12 7 7 2"/>
+    <line x1="8" y1="22" x2="16" y2="22"/>
+  </svg>
+);
+
 const RoomsIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
@@ -63,15 +72,37 @@ const RoomsIcon = () => (
 );
 
 interface SidebarProps {
-  activeTab: TabType;
+  activeTab: SidebarActiveTab;
   onTabChange: (tab: TabType) => void;
   activeUsers: number;
   nickname: string;
   onOpenRooms: () => void;
+  onOpenTelevision: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, nickname, onOpenRooms }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, nickname, onOpenRooms, onOpenTelevision }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const mobileNavRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isMenuOpen) return;
+    const handleOutsideClick = (event: MouseEvent | TouchEvent) => {
+      if (mobileNavRef.current && !mobileNavRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setIsMenuOpen(false);
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    document.addEventListener('touchstart', handleOutsideClick);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+      document.removeEventListener('touchstart', handleOutsideClick);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isMenuOpen]);
 
   const tabs = [
     { id: 'home', icon: <HomeIcon />, label: 'Home' },
@@ -84,11 +115,16 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, 
 
   return (
     <>
-      <div className="mobile-top-nav">
+      <div className="mobile-top-nav" ref={mobileNavRef}>
         <div className="mobile-logo" style={{ color: '#e50914', fontWeight: 800, fontSize: '1.2rem' }}>
           WATCH2GETHER
         </div>
-        <button className="hamburger-btn" onClick={() => setIsMenuOpen(!isMenuOpen)}>
+        <button
+          className="hamburger-btn"
+          aria-label="Open menu"
+          aria-expanded={isMenuOpen}
+          onClick={() => setIsMenuOpen(!isMenuOpen)}
+        >
           <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="3" y1="12" x2="21" y2="12"></line>
             <line x1="3" y1="6" x2="21" y2="6"></line>
@@ -98,16 +134,27 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, 
         {isMenuOpen && (
           <div className="mobile-dropdown-menu">
             {nickname && (
-              <div className="mobile-dropdown-item" style={{ color: '#22c55e' }}>
-                <span style={{ marginRight: '8px' }}>●</span> {activeUsers} Online
+              <div className="mobile-dropdown-item" style={{ color: '#22c55e', cursor: 'default' }}>
+                <span>●</span>
+                <span>{activeUsers} Online</span>
               </div>
             )}
-            <button 
-              className="mobile-dropdown-item" 
-              onClick={() => { onOpenRooms(); setIsMenuOpen(false); }}
-              style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', textAlign: 'left', width: '100%', fontSize: '1rem' }}
+            <button
+              type="button"
+              className={`mobile-dropdown-item ${activeTab === 'television' ? 'active' : ''}`}
+              onClick={() => { onOpenTelevision(); setIsMenuOpen(false); }}
             >
-              Rooms
+              <TelevisionIcon />
+              <span>Television</span>
+              <span className="mobile-dropdown-live-dot" title="Live TV" />
+            </button>
+            <button
+              type="button"
+              className={`mobile-dropdown-item ${activeTab === 'rooms' ? 'active' : ''}`}
+              onClick={() => { onOpenRooms(); setIsMenuOpen(false); }}
+            >
+              <RoomsIcon />
+              <span>Rooms</span>
             </button>
           </div>
         )}
@@ -143,7 +190,17 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, 
             <span className="text">{activeUsers} Online</span>
           </div>
         )}
-        <button className="sidebar-item btn-rooms" onClick={onOpenRooms}>
+        <button
+          className={`sidebar-item btn-television ${activeTab === 'television' ? 'active' : ''}`}
+          onClick={onOpenTelevision}
+        >
+          <span className="icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><TelevisionIcon /></span>
+          <span className="text">Television</span>
+        </button>
+        <button
+          className={`sidebar-item btn-rooms ${activeTab === 'rooms' ? 'active' : ''}`}
+          onClick={onOpenRooms}
+        >
           <span className="icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><RoomsIcon /></span>
           <span className="text">Rooms</span>
         </button>

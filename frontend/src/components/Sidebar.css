@@ -141,12 +141,22 @@
   100% { opacity: 0.5; }
 }
 
+.btn-television,
 .btn-rooms {
   background: rgba(255,255,255,0.05);
 }
 
+.btn-television:hover,
 .btn-rooms:hover {
   background: rgba(255,255,255,0.15);
+}
+
+.btn-television.active,
+.btn-rooms.active {
+  color: #fff;
+  background: rgba(229, 9, 20, 0.14);
+  border-left: 4px solid #e50914;
+  padding-left: 6px;
 }
 
 .mobile-top-nav {
@@ -197,23 +207,51 @@
     top: 60px;
     right: 10px;
     background: rgba(20, 20, 20, 0.98);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 8px;
-    padding: 10px 0;
-    min-width: 150px;
-    box-shadow: 0 5px 20px rgba(0,0,0,0.8);
+    border: 1px solid rgba(255,255,255,0.12);
+    border-radius: 10px;
+    padding: 8px 0;
+    min-width: 190px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.85);
     display: flex;
     flex-direction: column;
+    z-index: 1005;
   }
   
   .mobile-dropdown-item {
-    padding: 12px 20px;
+    padding: 12px 18px;
     font-size: 1rem;
     font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    border: none;
+    color: #e5e5e5;
+    cursor: pointer;
+    text-align: left;
+    width: 100%;
+    transition: background 0.15s ease, color 0.15s ease;
   }
   
   .mobile-dropdown-item:hover {
     background: rgba(255,255,255,0.1);
+    color: #fff;
+  }
+
+  .mobile-dropdown-item.active {
+    background: rgba(229, 9, 20, 0.16);
+    color: #fff;
+    border-left: 3px solid #e50914;
+    padding-left: 15px;
+  }
+
+  .mobile-dropdown-live-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ef4444;
+    margin-left: auto;
+    box-shadow: 0 0 8px #ef4444;
   }
   .sidebar-nav:hover {
     width: 100vw;

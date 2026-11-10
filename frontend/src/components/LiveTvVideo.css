@@ -1,0 +1,229 @@
+.livetv-video-shell {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  background: #000;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.livetv-video-el {
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  background: #000;
+}
+
+.livetv-status-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(20, 22, 34, 0.88) 0%, rgba(10, 10, 15, 0.95) 100%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  text-align: center;
+  z-index: 5;
+  backdrop-filter: blur(6px);
+}
+
+.livetv-error-overlay {
+  background: radial-gradient(circle at center, rgba(35, 16, 22, 0.92) 0%, rgba(10, 10, 14, 0.97) 100%);
+}
+
+.livetv-spinner {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.14);
+  border-top-color: #e50914;
+  animation: livetv-spin 0.85s linear infinite;
+}
+
+@keyframes livetv-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.livetv-error-icon {
+  font-size: 2.25rem;
+  line-height: 1;
+}
+
+.livetv-status-title {
+  margin: 0;
+  color: #fff;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+
+.livetv-status-sub {
+  margin: 0;
+  color: #a1a1aa;
+  font-size: 0.85rem;
+  max-width: 420px;
+}
+
+.livetv-error-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem;
+  margin-top: 0.4rem;
+}
+
+.tv-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 8px;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+  white-space: nowrap;
+}
+
+.tv-btn:hover {
+  background: rgba(255, 255, 255, 0.16);
+  transform: translateY(-1px);
+}
+
+.tv-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.tv-btn-primary {
+  background: #e50914;
+  border-color: #e50914;
+  color: #fff;
+}
+
+.tv-btn-primary:hover {
+  background: #f40612;
+  border-color: #f40612;
+}
+
+.tv-btn-secondary {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.16);
+  color: #f4f4f5;
+}
+
+.tv-btn-indigo {
+  background: #6366f1;
+  border-color: #6366f1;
+  color: #fff;
+}
+
+.tv-btn-indigo:hover {
+  background: #4f46e5;
+  border-color: #4f46e5;
+}
+
+.livetv-top-hud {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  right: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.livetv-live-pill {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.25rem 0.65rem;
+  border-radius: 999px;
+  background: rgba(15, 15, 20, 0.78);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  backdrop-filter: blur(8px);
+  color: #d4d4d8;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.livetv-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #71717a;
+}
+
+.livetv-live-pill.online {
+  color: #fff;
+  border-color: rgba(229, 9, 20, 0.55);
+}
+
+.livetv-live-pill.online .livetv-live-dot {
+  background: #ef4444;
+  box-shadow: 0 0 8px #ef4444;
+  animation: livetv-pulse 1.6s infinite;
+}
+
+@keyframes livetv-pulse {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(0.85);
+  }
+}
+
+.livetv-hud-controls {
+  pointer-events: auto;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.livetv-hud-btn,
+.livetv-hud-select {
+  background: rgba(15, 15, 20, 0.8);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(8px);
+  color: #f4f4f5;
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.28rem 0.6rem;
+  border-radius: 6px;
+  cursor: pointer;
+  outline: none;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.livetv-hud-btn:hover,
+.livetv-hud-select:hover {
+  background: rgba(35, 35, 45, 0.92);
+  border-color: rgba(255, 255, 255, 0.35);
+}
+
+.livetv-hud-select option {
+  background: #141418;
+  color: #fff;
+}
+

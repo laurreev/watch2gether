@@ -2,6 +2,9 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useWebRTC, type Resolution } from '../hooks/useWebRTC.ts';
 import MediaSelector from './MediaSelector.tsx';
 import YoutubeSelector from './YoutubeSelector.tsx';
+import LiveTvVideo from './LiveTvVideo.tsx';
+import { LiveTvPickerModal } from './TelevisionView.tsx';
+import type { TvChannel, TvStream } from '../services/television.ts';
 import ReactPlayerModule from 'react-player';
 const ReactPlayer = (ReactPlayerModule as any).default || ReactPlayerModule;
 
@@ -11,7 +14,22 @@ interface ScreenShareProps {
   onLeave: (msg?: string) => void;
   onHostMigrate: (isHost: boolean) => void;
   roomConfig?: { isPublic: boolean; password?: string };
-  initialMedia?: { id: string; title: string; type: string; imageUrl?: string; url?: string; originalUrl?: string; year?: string; vote_average?: number; tmdb_type?: string };
+  initialMedia?: {
+    id: string;
+    title: string;
+    type: string;
+    imageUrl?: string;
+    url?: string;
+    originalUrl?: string;
+    year?: string;
+    vote_average?: number;
+    tmdb_type?: string;
+    streams?: TvStream[];
+    country?: string;
+    countryName?: string;
+    flag?: string;
+    primaryCategory?: string;
+  };
   initialEpisode?: number;
   initialSeason?: number;
   initialSynced?: boolean;
@@ -193,7 +211,22 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   const [resolution, setResolution] = useState<Resolution>('max');
   const [showCursor, setShowCursor] = useState(true);
   const [showMediaSelector, setShowMediaSelector] = useState<'local' | 'share' | false>(false);
-  const [playingMedia, setPlayingMedia] = useState<{title: string, type: string, url?: string, originalUrl?: string, episode?: number, season?: number} | null>(null);
+  const [showTvPicker, setShowTvPicker] = useState(false);
+  const [playingMedia, setPlayingMedia] = useState<{
+    id?: string;
+    title: string;
+    type: string;
+    url?: string;
+    originalUrl?: string;
+    episode?: number;
+    season?: number;
+    streams?: TvStream[];
+    logo?: string;
+    country?: string;
+    countryName?: string;
+    flag?: string;
+    primaryCategory?: string;
+  } | null>(null);
   const [activeServer, setActiveServer] = useState('1');
   const [isExtractingServer, setIsExtractingServer] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
@@ -440,13 +473,50 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
     }
   };
 
-  // Auto-play initial media when coming from details page
+  const handleSelectLiveChannel = (channel: TvChannel) => {
+    const tvItem = {
+      id: channel.id,
+      title: channel.name,
+      type: 'Live TV',
+      url: channel.streams[0]?.url || '',
+      streams: channel.streams,
+      logo: channel.logo,
+      country: channel.country,
+      countryName: channel.countryName,
+      flag: channel.flag,
+      primaryCategory: channel.primaryCategory,
+    };
+    setPlayingMedia(tvItem);
+    if (isOwner && socket) {
+      socket.emit('play-media', { roomId, media: tvItem });
+    }
+  };
+
+  // Auto-play initial media when coming from details page or Television view
   const initialMediaLoadedRef = React.useRef(false);
   useEffect(() => {
     if (!initialMedia || !isOwner || !socket || initialMediaLoadedRef.current) return;
     initialMediaLoadedRef.current = true;
 
     const loadInitialMedia = async () => {
+      if (initialMedia.type === 'Live TV') {
+        const tvItem = {
+          id: initialMedia.id,
+          title: initialMedia.title,
+          type: 'Live TV',
+          url: initialMedia.url || initialMedia.streams?.[0]?.url || '',
+          streams: initialMedia.streams || [],
+          logo: initialMedia.imageUrl,
+          country: initialMedia.country,
+          countryName: initialMedia.countryName,
+          flag: initialMedia.flag,
+          primaryCategory: initialMedia.primaryCategory,
+        };
+        setPlayingMedia(tvItem);
+        socket.emit('play-media', { roomId, media: tvItem });
+        return;
+      }
+
       try {
         const { getVaporpicIframe } = await import('../services/vaporpic.ts');
         const url = await getVaporpicIframe(
@@ -524,6 +594,11 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
          return;
       }
 
+      if (media.type === 'Live TV') {
+         setPlayingMedia(media);
+         return;
+      }
+
       // Clear the URL from the host so the viewer doesn't get an OOPS error
       const mediaWithoutUrl = { ...media, url: '' };
       setPlayingMedia(mediaWithoutUrl);
@@ -571,17 +646,29 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
           {isOwner && (
             <div className="mobile-primary-actions hide-on-desktop" style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginBottom: '1rem' }}>
               {(!localStream && !playingMedia) && (
-                <button className="btn btn-primary" onClick={() => setShowMediaSelector('local')}>
-                  Find something to watch
-                </button>
+                <>
+                  <button className="btn btn-primary" onClick={() => setShowMediaSelector('local')}>
+                    Find something to watch
+                  </button>
+                  <button className="btn" style={{ background: '#6366f1', color: 'white' }} onClick={() => setShowTvPicker(true)}>
+                    📺 Live TV
+                  </button>
+                </>
               )}
               {(localStream || playingMedia) && (
-                <button className="btn btn-danger" onClick={() => {
-                   if (localStream) stopScreenShare();
-                   if (playingMedia) handleStopMedia();
-                }}>
-                   {localStream && playingMedia ? 'Stop Session' : localStream ? 'Stop Sharing' : 'Stop Playing'}
-                </button>
+                <>
+                  {playingMedia?.type === 'Live TV' && (
+                    <button className="btn" style={{ background: '#6366f1', color: 'white' }} onClick={() => setShowTvPicker(true)}>
+                      📺 Switch Channel
+                    </button>
+                  )}
+                  <button className="btn btn-danger" onClick={() => {
+                     if (localStream) stopScreenShare();
+                     if (playingMedia) handleStopMedia();
+                  }}>
+                     {localStream && playingMedia ? 'Stop Session' : localStream ? 'Stop Sharing' : 'Stop Playing'}
+                  </button>
+                </>
               )}
             </div>
           )}
@@ -615,6 +702,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                 </button>
                 <button className="btn" style={{ background: '#ef4444', color: 'white' }} onClick={() => setShowYoutubeInput(true)}>
                   Watch on Youtube
+                </button>
+                <button className="btn" style={{ background: '#6366f1', color: 'white' }} onClick={() => setShowTvPicker(true)}>
+                  📺 Live TV
                 </button>
                 <div style={{ position: 'relative' }}>
                   <button className="btn btn-secondary" style={{ height: '100%', width: '100%' }} onClick={() => setShowShareOptions(!showShareOptions)}>
@@ -657,7 +747,11 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
             )}
             {isOwner && (localStream || playingMedia) && (
                <>
-                 {playingMedia && (
+                 {playingMedia && playingMedia.type === 'Live TV' ? (
+                   <button className="btn hide-on-mobile" style={{ background: '#6366f1', color: 'white' }} onClick={() => setShowTvPicker(true)}>
+                     📺 Switch Channel
+                   </button>
+                 ) : playingMedia && playingMedia.type !== 'YouTube' ? (
                    <select 
                      className="input-field select-field"
                      value={activeServer}
@@ -672,7 +766,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                        <option value="6">VidSrc TO</option>
                        <option value="7">VidSrc PM</option>
                     </select>
-                 )}
+                 ) : null}
                  <button className="btn btn-danger hide-on-mobile" onClick={() => {
                    if (localStream) stopScreenShare();
                    if (playingMedia) handleStopMedia();
@@ -681,7 +775,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  </button>
                </>
             )}
-            {playingMedia && (
+            {playingMedia && playingMedia.type !== 'Live TV' && (
                <button className="btn hide-on-mobile" style={{ background: 'var(--primary)', padding: '0.3rem 0.6rem', fontSize: '0.85rem' }} onClick={() => setIsPip(!isPip)}>
                  🖼️ PiP Mode
                </button>
@@ -797,6 +891,34 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  {isExtractingServer ? (
                      <div style={{ padding: '2rem', textAlign: 'center', color: 'white', flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                        Loading new server stream...
+                     </div>
+                  ) : playingMedia.type === 'Live TV' && (playingMedia.streams?.length || playingMedia.url) ? (
+                     <div id="media-player-container" className={isTheaterMode ? 'theater-player' : 'media-player-container'} style={{ width: '100%', flex: 1, background: '#000', position: 'relative', transform: 'translateZ(0)' }}>
+                       <div style={{ position: 'absolute', inset: 0 }}>
+                         <LiveTvVideo
+                           channel={{
+                             id: playingMedia.id || playingMedia.title,
+                             name: playingMedia.title,
+                             logo: playingMedia.logo,
+                             country: playingMedia.country,
+                             countryName: playingMedia.countryName,
+                             flag: playingMedia.flag,
+                             primaryCategory: playingMedia.primaryCategory,
+                             streams:
+                               playingMedia.streams && playingMedia.streams.length > 0
+                                 ? playingMedia.streams
+                                 : [
+                                     {
+                                       url: playingMedia.url || '',
+                                       quality: '',
+                                       label: 'Live',
+                                       userAgent: null,
+                                       referrer: null,
+                                     },
+                                   ],
+                           }}
+                         />
+                       </div>
                      </div>
                   ) : playingMedia.url ? (
                      <div id="media-player-container" className={isTheaterMode ? 'theater-player' : 'media-player-container'} style={{ width: '100%', flex: 1, background: '#000', position: 'relative', transform: 'translateZ(0)' }}>
@@ -1035,6 +1157,13 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
             setShowYoutubeInput(false);
           }} 
           onClose={() => setShowYoutubeInput(false)} 
+        />
+      )}
+
+      {showTvPicker && (
+        <LiveTvPickerModal
+          onSelectChannel={(ch) => handleSelectLiveChannel(ch)}
+          onClose={() => setShowTvPicker(false)}
         />
       )}
     </main>

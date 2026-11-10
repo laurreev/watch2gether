@@ -3,6 +3,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const path = require('path');
+const tvService = require('./tvService');
 
 const app = express();
 const server = http.createServer(app);
@@ -337,6 +338,51 @@ app.get('/api/yt/search', async (req, res) => {
     }
 });
 
+// Television (Live TV Directory & HLS Proxy)
+app.get('/api/tv/meta', async (req, res) => {
+    try {
+        const localCountry = typeof req.query.localCountry === 'string' ? req.query.localCountry : 'PH';
+        const data = await tvService.getTvMeta(localCountry);
+        res.json(data);
+    } catch (err) {
+        console.error('TV Meta Error:', err);
+        res.status(500).json({ error: 'Failed to load television metadata' });
+    }
+});
+
+app.get('/api/tv/featured', async (req, res) => {
+    try {
+        const localCountry = typeof req.query.localCountry === 'string' ? req.query.localCountry : 'PH';
+        const data = await tvService.getFeaturedTvShelves(localCountry);
+        res.json(data);
+    } catch (err) {
+        console.error('TV Featured Error:', err);
+        res.status(500).json({ error: 'Failed to load featured channels' });
+    }
+});
+
+app.get('/api/tv/channels', async (req, res) => {
+    try {
+        const data = await tvService.queryTvChannels({
+            category: req.query.category,
+            scope: req.query.scope,
+            country: req.query.country,
+            localCountry: req.query.localCountry,
+            q: req.query.q,
+            page: req.query.page,
+            limit: req.query.limit
+        });
+        res.json(data);
+    } catch (err) {
+        console.error('TV Channels Error:', err);
+        res.status(500).json({ error: 'Failed to query television channels' });
+    }
+});
+
+app.get('/api/tv/proxy', (req, res) => {
+    tvService.proxyStream(req, res);
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'frontend/dist')));
@@ -363,4 +409,8 @@ app.get('/api/room/:id', (req, res) => {
 
 server.listen(PORT, '0.0.0.0', () => {
     console.log(`Signaling server listening on port ${PORT}`);
+    // Pre-warm Television directory in background
+    tvService.ensureTvIndex().catch((err) => {
+        console.error('[Television] Warm-up failed:', err.message);
+    });
 });
