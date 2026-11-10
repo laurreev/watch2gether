@@ -412,6 +412,7 @@ const CATEGORY_DEFS = [
     { id: 'cartoons', name: 'Cartoons & Kids' },
     { id: 'wildlife', name: 'Wildlife & Nature' },
     { id: 'sports', name: 'Sports' },
+    { id: 'adult', name: 'Adult' },
     { id: 'news', name: 'News' },
     { id: 'movies', name: 'Movies & Series' },
     { id: 'documentary', name: 'Documentary & Science' },
@@ -424,15 +425,26 @@ const CARTOON_REGEX = /\b(cartoons?|toons?|kids?|anime|nickelodeon|nick\s*toons|
 const WILDLIFE_REGEX = /\b(wild(?:life|erness)?|nature(?:scape)?|animals?|safari|ocean\s+vibes|nat\s?geo|love\s+nature|earth\s+touch|evolution\s+earth|adventure\s+earth|wild\s+planet|wild\s+nature|wild\s+tv|outdoor\s+channel|aquarium|zoo|puppies|puppy|pet\s*collective|akc\s*tv|smithsonian)\b/i;
 const WILDLIFE_EXCLUDE_REGEX = /\b(wild\s+west|earth:\s*final\s+conflict|wild\s*card)\b/i;
 const SPORTS_REGEX = /\b(sports?|nba|nfl|mlb|nhl|fifa|soccer|football|ufc|mma|boxing|wrestling|tna|wwe|motorsport|racing|floracing|formula|f1|golf|tennis|bein|espn|red\s+bull|premier\s+sports|tap\s+sports|one\s+sports|pba|cricket|rugby|athletic)\b/i;
+const ADULT_REGEX = /\b(xxx|nsfw|18\+|erotic[a]?|playboy|penthouse|hustler|brazzers|dorcel|redlight|vivid|sextury)\b/i;
+const ADULT_EXCLUDE_REGEX = /\b(adult\s+swim|adult\s+animation|pop\s+adult)\b/i;
 const NEWS_REGEX = /\b(news|cnn|bbc|al\s*jazeera|bloomberg|cnbc|msnbc|fox\s*news|france\s*24|dw\s+english|nhk|abante|bilyonaryo|teleradyo|euronews|sky\s*news)\b/i;
 const MOVIES_REGEX = /\b(movies?|cinema|film|thrillers?|horror|action|romance|comedy|classic|western|hallmark|cine|dramas?)\b/i;
 const MUSIC_REGEX = /\b(music|mtv|vh1|vevo|stingray|hiphop|hip\s*hop|pop|rock|jazz|k-?pop|karaoke)\b/i;
 
-function classifyChannel(title, rawCategories = []) {
+function classifyChannel(title, rawCategories = [], isNsfwFlag = false) {
     const cats = new Set(rawCategories.map((c) => String(c).toLowerCase()));
     const groups = new Set();
 
-    if (cats.has('animation') || cats.has('kids') || CARTOON_REGEX.test(title)) {
+    const isAdult = Boolean(
+        isNsfwFlag ||
+        cats.has('xxx') ||
+        (!ADULT_EXCLUDE_REGEX.test(title) && ADULT_REGEX.test(title))
+    );
+
+    if (isAdult) {
+        groups.add('adult');
+    }
+    if (!isAdult && (cats.has('animation') || cats.has('kids') || CARTOON_REGEX.test(title))) {
         groups.add('cartoons');
     }
     if (
@@ -463,11 +475,12 @@ function classifyChannel(title, rawCategories = []) {
         groups.add('general');
     }
 
-    const priorityOrder = ['cartoons', 'wildlife', 'sports', 'news', 'movies', 'documentary', 'music', 'entertainment', 'general'];
+    const priorityOrder = ['adult', 'cartoons', 'wildlife', 'sports', 'news', 'movies', 'documentary', 'music', 'entertainment', 'general'];
     const primaryId = priorityOrder.find((id) => groups.has(id)) || 'general';
     const primaryDef = CATEGORY_DEFS.find((d) => d.id === primaryId);
 
     return {
+        isNsfw: isAdult,
         tvGroups: Array.from(groups),
         primaryCategory: primaryDef ? primaryDef.name : 'General'
     };
@@ -571,6 +584,7 @@ function buildCuratedFallback() {
             primaryCategory: c.primaryCategory,
             quality: c.quality || 'HD',
             isCurated: true,
+            isNsfw: false,
             score: scoreStream(stream, !!c.logo, true),
             streams: [stream]
         };
@@ -609,6 +623,7 @@ async function refreshTvIndex() {
                     name: ch.name,
                     country: ch.country === 'UK' ? 'GB' : (ch.country || 'INT'),
                     categories: Array.isArray(ch.categories) ? ch.categories : [],
+                    isNsfw: Boolean(ch.is_nsfw),
                     logo: ''
                 });
             }
@@ -648,6 +663,7 @@ async function refreshTvIndex() {
                     primaryCategory: c.primaryCategory,
                     quality: c.quality || 'HD',
                     isCurated: true,
+                    isNsfw: false,
                     score: scoreStream(streamObj, !!c.logo, true),
                     streams: [streamObj],
                     _seenUrls: new Set([c.url])
@@ -665,7 +681,7 @@ async function refreshTvIndex() {
                 if (!name) continue;
 
                 const rawCategories = meta ? meta.categories : [];
-                const { tvGroups, primaryCategory } = classifyChannel(name, rawCategories);
+                const { isNsfw, tvGroups, primaryCategory } = classifyChannel(name, rawCategories, Boolean(meta && meta.isNsfw));
 
                 const countryCode = meta ? meta.country : 'INT';
                 const countryInfo = countryMap.get(countryCode) || { code: 'INT', name: 'International', flag: '🌐' };
@@ -699,6 +715,7 @@ async function refreshTvIndex() {
                         primaryCategory,
                         quality: streamObj.quality || 'LIVE',
                         isCurated: false,
+                        isNsfw,
                         score: scoreStream(streamObj, !!logo, false),
                         streams: [streamObj],
                         _seenUrls: new Set([s.url])
@@ -772,6 +789,7 @@ async function refreshTvIndex() {
                     primaryCategory: ch.primaryCategory,
                     quality: ch.quality,
                     isCurated: ch.isCurated,
+                    isNsfw: Boolean(ch.isNsfw),
                     score: ch.score,
                     streams: cleanedStreams
                 });
