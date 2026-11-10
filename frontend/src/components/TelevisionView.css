@@ -772,12 +772,6 @@
   color: #022c22;
 }
 
-.tv-mini-badge.adult {
-  background: rgba(190, 18, 60, 0.92);
-  border-color: rgba(253, 164, 175, 0.45);
-  color: #fff;
-}
-
 .tv-card-hover-play {
   position: absolute;
   inset: 0;

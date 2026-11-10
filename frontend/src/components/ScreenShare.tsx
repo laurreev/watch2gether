@@ -486,6 +486,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
       flag: channel.flag,
       primaryCategory: channel.primaryCategory,
     };
+    setIsPip(false);
     setPlayingMedia(tvItem);
     if (isOwner && socket) {
       socket.emit('play-media', { roomId, media: tvItem });
@@ -552,6 +553,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
   }, [initialMedia, isOwner, socket]);
 
   const handleStopMedia = () => {
+    setIsPip(false);
     setPlayingMedia(null);
     setYtPlaying(true);
     setViewerControlEnabled(false);
@@ -775,7 +777,7 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                  </button>
                </>
             )}
-            {playingMedia && playingMedia.type !== 'Live TV' && (
+            {playingMedia && (
                <button className="btn hide-on-mobile" style={{ background: 'var(--primary)', padding: '0.3rem 0.6rem', fontSize: '0.85rem' }} onClick={() => setIsPip(!isPip)}>
                  🖼️ PiP Mode
                </button>
@@ -896,6 +898,8 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                      <div id="media-player-container" className={isTheaterMode ? 'theater-player' : 'media-player-container'} style={{ width: '100%', flex: 1, background: '#000', position: 'relative', transform: 'translateZ(0)' }}>
                        <div style={{ position: 'absolute', inset: 0 }}>
                          <LiveTvVideo
+                           pip={isPip}
+                           onPipChange={setIsPip}
                            channel={{
                              id: playingMedia.id || playingMedia.title,
                              name: playingMedia.title,

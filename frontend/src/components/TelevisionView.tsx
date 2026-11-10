@@ -20,7 +20,6 @@ const CATEGORY_ICONS: Record<string, string> = {
   cartoons: '🎨',
   wildlife: '🦁',
   sports: '⚽',
-  adult: '🔞',
   news: '📰',
   movies: '🎬',
   documentary: '🌍',
@@ -33,7 +32,6 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
   'Cartoons & Kids': 'linear-gradient(135deg, #ec4899 0%, #8b5cf6 100%)',
   'Wildlife & Nature': 'linear-gradient(135deg, #10b981 0%, #047857 100%)',
   Sports: 'linear-gradient(135deg, #f97316 0%, #dc2626 100%)',
-  Adult: 'linear-gradient(135deg, #be123c 0%, #4c0519 100%)',
   News: 'linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%)',
   'Movies & Series': 'linear-gradient(135deg, #e50914 0%, #7f1d1d 100%)',
   'Documentary & Science': 'linear-gradient(135deg, #06b6d4 0%, #0e7490 100%)',
@@ -179,7 +177,6 @@ const ChannelShelf: React.FC<ChannelShelfProps> = ({
                     <div className="tv-badge-group">
                       <span className="tv-mini-badge live">● LIVE</span>
                       {isLocal && <span className="tv-mini-badge local">LOCAL</span>}
-                      {(ch.isNsfw || ch.tvGroups.includes('adult')) && <span className="tv-mini-badge adult">18+</span>}
                     </div>
                     {ch.quality && <span className="tv-mini-badge">{ch.quality}</span>}
                   </div>
@@ -587,7 +584,6 @@ const TelevisionView: React.FC<TelevisionViewProps> = ({ onWatchTogether }) => {
               { id: 'cartoons', name: 'Cartoons & Kids', count: 0 },
               { id: 'wildlife', name: 'Wildlife & Nature', count: 0 },
               { id: 'sports', name: 'Sports', count: 0 },
-              { id: 'adult', name: 'Adult', count: 0 },
               { id: 'news', name: 'News', count: 0 },
               { id: 'movies', name: 'Movies & Series', count: 0 },
               { id: 'documentary', name: 'Documentary & Science', count: 0 },
@@ -883,7 +879,6 @@ const TelevisionView: React.FC<TelevisionViewProps> = ({ onWatchTogether }) => {
                           <div className="tv-badge-group">
                             <span className="tv-mini-badge live">● LIVE</span>
                             {isLocal && <span className="tv-mini-badge local">LOCAL</span>}
-                            {(ch.isNsfw || ch.tvGroups.includes('adult')) && <span className="tv-mini-badge adult">18+</span>}
                           </div>
                           {ch.quality && <span className="tv-mini-badge">{ch.quality}</span>}
                         </div>
@@ -1023,7 +1018,6 @@ export const LiveTvPickerModal: React.FC<LiveTvPickerModalProps> = ({ onSelectCh
     { id: 'cartoons', label: '🎨 Cartoons' },
     { id: 'wildlife', label: '🦁 Wildlife' },
     { id: 'sports', label: '⚽ Sports' },
-    { id: 'adult', label: '🔞 Adult' },
     { id: 'news', label: '📰 News' },
     { id: 'movies', label: '🎬 Movies' },
     { id: 'documentary', label: '🌍 Documentary' },
@@ -1124,10 +1118,7 @@ export const LiveTvPickerModal: React.FC<LiveTvPickerModalProps> = ({ onSelectCh
                     category={ch.primaryCategory}
                   />
                   <div className="tv-card-badges-top">
-                    <div className="tv-badge-group">
-                      <span className="tv-mini-badge live">● LIVE</span>
-                      {(ch.isNsfw || ch.tvGroups.includes('adult')) && <span className="tv-mini-badge adult">18+</span>}
-                    </div>
+                    <span className="tv-mini-badge live">● LIVE</span>
                     {ch.quality && <span className="tv-mini-badge">{ch.quality}</span>}
                   </div>
                   <div className="tv-card-hover-play">

@@ -19,7 +19,6 @@ export interface TvChannel {
   primaryCategory: string;
   quality: string;
   isCurated: boolean;
-  isNsfw?: boolean;
   score: number;
   streams: TvStream[];
 }
