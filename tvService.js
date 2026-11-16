@@ -1170,7 +1170,7 @@ const PBB_FEEDS = [
         quality: '1080p HD',
         isLive: true,
         badge: 'LIVE 24/7',
-        url: 'https://freeshorts.tech/player.html?ch=all',
+        url: '/pbb-player.html?ch=all',
         dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream/manifest.mpd',
         hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream/master.m3u8'
     },
@@ -1185,7 +1185,7 @@ const PBB_FEEDS = [
         quality: '1080p HD',
         isLive: true,
         badge: 'LIVE 24/7',
-        url: 'https://freeshorts.tech/player.html?ch=ext',
+        url: '/pbb-player.html?ch=ext',
         dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream-externalden/manifest.mpd',
         hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream-externalden/master.m3u8'
     },
@@ -1200,7 +1200,7 @@ const PBB_FEEDS = [
         quality: '1080p HD',
         isLive: true,
         badge: 'LIVE 24/7',
-        url: 'https://freeshorts.tech/player.html?ch=din',
+        url: '/pbb-player.html?ch=din',
         dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream-diningarea/manifest.mpd',
         hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream-diningarea/master.m3u8'
     },
@@ -1215,7 +1215,7 @@ const PBB_FEEDS = [
         quality: '1080p HD',
         isLive: true,
         badge: 'LIVE 24/7',
-        url: 'https://freeshorts.tech/player.html?ch=main',
+        url: '/pbb-player.html?ch=main',
         dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pinoybigbrothercollabedition30live/manifest.mpd',
         hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pinoybigbrothercollabedition30live/master.m3u8'
     },
