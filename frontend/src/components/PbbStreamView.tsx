@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   type PbbFeed,
   type PbbMeta,
@@ -39,13 +39,33 @@ const SingleViewIcon = () => (
   </svg>
 );
 
+const FullscreenIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="15 3 21 3 21 9" />
+    <polyline points="9 21 3 21 3 15" />
+    <line x1="21" y1="3" x2="14" y2="10" />
+    <line x1="3" y1="21" x2="10" y2="14" />
+  </svg>
+);
+
+const ExitFullscreenIcon = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.1" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <polyline points="4 14 10 14 10 20" />
+    <polyline points="20 10 14 10 14 4" />
+    <line x1="14" y1="10" x2="21" y2="3" />
+    <line x1="3" y1="21" x2="10" y2="14" />
+  </svg>
+);
+
 export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether }) => {
   const [meta, setMeta] = useState<PbbMeta>(DEFAULT_PBB_META);
   const [customFeeds, setCustomFeeds] = useState<PbbFeed[]>(() => getCustomPbbFeeds());
   const [activeFeedId, setActiveFeedId] = useState<string>('pbb-cam-1');
   const [isQuadView, setIsQuadView] = useState<boolean>(false);
   const [isPip, setIsPip] = useState<boolean>(false);
+  const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
+  const stageRef = useRef<HTMLDivElement>(null);
 
   // Form states for custom feed
   const [customName, setCustomName] = useState('');
@@ -138,9 +158,29 @@ export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether })
     }
   };
 
-  // Top 4 camera feeds for Quad Multi-Cam View
+  useEffect(() => {
+    const handleFsChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+    document.addEventListener('fullscreenchange', handleFsChange);
+    return () => document.removeEventListener('fullscreenchange', handleFsChange);
+  }, []);
+
+  const toggleFullscreen = () => {
+    if (!document.fullscreenElement) {
+      stageRef.current?.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+  };
+
+  // Top 4 camera feeds for Quad Multi-Cam View (always prioritize the 4 main live feeds)
   const quadCameras = useMemo(() => {
-    return allFeeds.slice(0, 4);
+    const camIds = ['pbb-cam-1', 'pbb-cam-2', 'pbb-cam-3', 'pbb-cam-4'];
+    const cams = camIds
+      .map((id) => allFeeds.find((f) => f.id === id))
+      .filter((f): f is PbbFeed => Boolean(f));
+    return cams.length === 4 ? cams : allFeeds.slice(0, 4);
   }, [allFeeds]);
 
   return (
@@ -190,6 +230,15 @@ export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether })
             </button>
             <button
               type="button"
+              className="pbb-btn pbb-btn-secondary"
+              onClick={toggleFullscreen}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+            >
+              {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+              <span>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+            </button>
+            <button
+              type="button"
               className="pbb-btn pbb-btn-room"
               onClick={() => handleWatchFeedTogether(activeFeed)}
               title="Launch Watch Together Room"
@@ -200,67 +249,78 @@ export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether })
           </div>
         </header>
 
-        {/* Video Player Stage */}
-        {!isQuadView ? (
-          <div className="pbb-player-stage">
-            <div className="pbb-player-wrapper">
-              {activeFeed.type === 'youtube' ? (
-                <iframe
-                  src={activeFeed.url.includes('?') ? `${activeFeed.url}&autoplay=1` : `${activeFeed.url}?autoplay=1`}
-                  className="pbb-iframe-player"
-                  title={activeFeed.name}
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
-              ) : (
-                <LiveTvVideo
-                  channel={playableChannel}
-                  pip={isPip}
-                  onPipChange={setIsPip}
-                />
-              )}
+        {/* Video Player Stage / Quad View */}
+        <div ref={stageRef} className={`pbb-player-stage-container ${isFullscreen ? 'pbb-fullscreen-active' : ''}`}>
+          {!isQuadView ? (
+            <div className="pbb-player-stage">
+              <div className="pbb-player-wrapper">
+                {activeFeed.type === 'youtube' || activeFeed.type === 'embed' ? (
+                  <iframe
+                    src={
+                      activeFeed.type === 'youtube'
+                        ? (activeFeed.url.includes('?') ? `${activeFeed.url}&autoplay=1` : `${activeFeed.url}?autoplay=1`)
+                        : activeFeed.url
+                    }
+                    className="pbb-iframe-player"
+                    title={activeFeed.name}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                    allowFullScreen
+                  />
+                ) : (
+                  <LiveTvVideo
+                    channel={playableChannel}
+                    pip={isPip}
+                    onPipChange={setIsPip}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          /* Quad Multi-Camera Grid View */
-          <div className="pbb-quad-grid">
-            {quadCameras.map((cam) => {
-              const camChannel = pbbFeedToPlayableChannel(cam);
-              return (
-                <div
-                  key={cam.id}
-                  className={`pbb-quad-cell ${activeFeedId === cam.id ? 'active' : ''}`}
-                  onClick={() => handleSelectFeed(cam)}
-                >
-                  <div className="pbb-quad-header">
-                    <span className="pbb-quad-tag">
-                      {cam.icon || '📹'} {cam.shortName}
-                    </span>
-                    <span className="pbb-badge pbb-badge-live">LIVE</span>
+          ) : (
+            /* Quad Multi-Camera Grid View */
+            <div className="pbb-quad-grid">
+              {quadCameras.map((cam) => {
+                const camChannel = pbbFeedToPlayableChannel(cam);
+                const isIframe = cam.type === 'youtube' || cam.type === 'embed';
+                return (
+                  <div
+                    key={cam.id}
+                    className={`pbb-quad-cell ${activeFeedId === cam.id ? 'active' : ''}`}
+                    onClick={() => handleSelectFeed(cam)}
+                  >
+                    <div className="pbb-quad-header">
+                      <span className="pbb-quad-tag">
+                        {cam.icon || '📹'} {cam.shortName}
+                      </span>
+                      <span className="pbb-badge pbb-badge-live">LIVE</span>
+                    </div>
+                    <div className="pbb-player-wrapper">
+                      {isIframe ? (
+                        <iframe
+                          src={
+                            cam.type === 'youtube'
+                              ? (cam.url.includes('?') ? `${cam.url}&autoplay=1&mute=1` : `${cam.url}?autoplay=1&mute=1`)
+                              : cam.url
+                          }
+                          className="pbb-iframe-player"
+                          title={cam.name}
+                          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"
+                          allowFullScreen
+                        />
+                      ) : (
+                        <LiveTvVideo
+                          channel={camChannel}
+                          muted={activeFeedId !== cam.id}
+                          controls={false}
+                        />
+                      )}
+                    </div>
+                    <div className="pbb-quad-overlay-click">Click to Focus Camera</div>
                   </div>
-                  <div className="pbb-player-wrapper">
-                    {cam.type === 'youtube' ? (
-                      <iframe
-                        src={cam.url.includes('?') ? `${cam.url}&autoplay=1&mute=1` : `${cam.url}?autoplay=1&mute=1`}
-                        className="pbb-iframe-player"
-                        title={cam.name}
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                        allowFullScreen
-                      />
-                    ) : (
-                      <LiveTvVideo
-                        channel={camChannel}
-                        muted={activeFeedId !== cam.id}
-                        controls={false}
-                      />
-                    )}
-                  </div>
-                  <div className="pbb-quad-overlay-click">Click to Focus Camera</div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
 
         {/* Active Feed Status Bar */}
         <div className="pbb-feed-bar">
