@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import './Sidebar.css';
 
 export type TabType = 'home' | 'search' | 'movies' | 'series' | 'anime' | 'kdrama';
-export type SidebarActiveTab = TabType | 'rooms' | 'television';
+export type SidebarActiveTab = TabType | 'rooms' | 'television' | 'pbb';
 
 const HomeIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -62,6 +62,14 @@ const TelevisionIcon = () => (
   </svg>
 );
 
+const PbbEyeIcon = () => (
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+    <path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" />
+    <circle cx="12" cy="12" r="3.5" />
+    <circle cx="12" cy="12" r="1.5" fill="currentColor" />
+  </svg>
+);
+
 const RoomsIcon = () => (
   <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
@@ -78,9 +86,10 @@ interface SidebarProps {
   nickname: string;
   onOpenRooms: () => void;
   onOpenTelevision: () => void;
+  onOpenPbb: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, nickname, onOpenRooms, onOpenTelevision }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, nickname, onOpenRooms, onOpenTelevision, onOpenPbb }) => {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const mobileNavRef = useRef<HTMLDivElement>(null);
 
@@ -141,6 +150,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, 
             )}
             <button
               type="button"
+              className={`mobile-dropdown-item btn-mobile-pbb ${activeTab === 'pbb' ? 'active' : ''}`}
+              onClick={() => { onOpenPbb(); setIsMenuOpen(false); }}
+            >
+              <PbbEyeIcon />
+              <span>PBB Stream</span>
+              <span className="mobile-dropdown-live-dot pbb-live-dot" title="24/7 Live Stream" />
+            </button>
+            <button
+              type="button"
               className={`mobile-dropdown-item ${activeTab === 'television' ? 'active' : ''}`}
               onClick={() => { onOpenTelevision(); setIsMenuOpen(false); }}
             >
@@ -190,6 +208,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activeTab, onTabChange, activeUsers, 
             <span className="text">{activeUsers} Online</span>
           </div>
         )}
+        <button
+          className={`sidebar-item btn-pbb ${activeTab === 'pbb' ? 'active' : ''}`}
+          onClick={onOpenPbb}
+          title="Pinoy Big Brother 24/7 Live Stream"
+        >
+          <span className="icon" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}><PbbEyeIcon /></span>
+          <span className="text">PBB Stream</span>
+        </button>
         <button
           className={`sidebar-item btn-television ${activeTab === 'television' ? 'active' : ''}`}
           onClick={onOpenTelevision}

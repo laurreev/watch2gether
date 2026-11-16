@@ -141,14 +141,23 @@
   100% { opacity: 0.5; }
 }
 
+.btn-pbb,
 .btn-television,
 .btn-rooms {
   background: rgba(255,255,255,0.05);
 }
 
+.btn-pbb:hover,
 .btn-television:hover,
 .btn-rooms:hover {
   background: rgba(255,255,255,0.15);
+}
+
+.btn-pbb.active {
+  color: #fff;
+  background: rgba(59, 130, 246, 0.16);
+  border-left: 4px solid #3b82f6;
+  padding-left: 6px;
 }
 
 .btn-television.active,
@@ -252,6 +261,16 @@
     background: #ef4444;
     margin-left: auto;
     box-shadow: 0 0 8px #ef4444;
+  }
+
+  .pbb-live-dot {
+    background: #3b82f6 !important;
+    box-shadow: 0 0 8px #3b82f6, 0 0 14px #60a5fa !important;
+  }
+
+  .mobile-dropdown-item.btn-mobile-pbb.active {
+    background: rgba(59, 130, 246, 0.2);
+    border-left: 3px solid #3b82f6;
   }
   .sidebar-nav:hover {
     width: 100vw;

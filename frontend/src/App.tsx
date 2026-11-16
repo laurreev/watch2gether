@@ -8,6 +8,7 @@ import NetflixHome from './components/NetflixHome';
 import NetflixDetails from './components/NetflixDetails';
 import type { MediaItem } from './components/NetflixHome';
 import TelevisionView from './components/TelevisionView';
+import PbbStreamView from './components/PbbStreamView';
 import type { TvChannel } from './services/television';
 import { getMediaDetails } from './services/vaporpic';
 import './index.css';
@@ -34,7 +35,7 @@ function App() {
   const [isCreatingPublic, setIsCreatingPublic] = useState(true);
 
 
-  const [view, setView] = useState<'home' | 'details' | 'player' | 'rooms' | 'solo' | 'television'>('home');
+  const [view, setView] = useState<'home' | 'details' | 'player' | 'rooms' | 'solo' | 'television' | 'pbb'>('home');
   const [activeTab, setActiveTab] = useState<TabType>('home');
   const [isResolvingRoute, setIsResolvingRoute] = useState(true);
   const [selectedMedia, setSelectedMedia] = useState<MediaItem | null>(null);
@@ -166,6 +167,9 @@ function App() {
         setIsResolvingRoute(false);
       } else if (hash === 'television') {
         setView('television');
+        setIsResolvingRoute(false);
+      } else if (hash === 'pbb' || hash === 'pbb-stream') {
+        setView('pbb');
         setIsResolvingRoute(false);
       } else if (hash === 'rooms') {
         setView('rooms');
@@ -300,7 +304,7 @@ function App() {
     <div className="app-container">
       {nickname && view !== 'player' && view !== 'solo' && (
         <Sidebar 
-          activeTab={view === 'rooms' ? 'rooms' : view === 'television' ? 'television' : activeTab}
+          activeTab={view === 'rooms' ? 'rooms' : view === 'television' ? 'television' : view === 'pbb' ? 'pbb' : activeTab}
           onTabChange={(tab) => {
             setActiveTab(tab);
             setView('home');
@@ -315,6 +319,10 @@ function App() {
           onOpenTelevision={() => {
             setView('television');
             window.location.hash = 'television';
+          }}
+          onOpenPbb={() => {
+            setView('pbb');
+            window.location.hash = 'pbb';
           }}
         />
       )}
@@ -362,6 +370,8 @@ function App() {
           onPlayLocal={handlePlayLocal}
           onCreateRoom={handleCreateRoom}
         />
+      ) : view === 'pbb' ? (
+        <PbbStreamView onWatchTogether={handleWatchTvTogether} />
       ) : view === 'television' ? (
         <TelevisionView onWatchTogether={handleWatchTvTogether} />
       ) : view === 'player' ? (

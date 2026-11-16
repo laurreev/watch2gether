@@ -383,6 +383,16 @@ app.get('/api/tv/proxy', (req, res) => {
     tvService.proxyStream(req, res);
 });
 
+app.get('/api/pbb/feeds', (req, res) => {
+    try {
+        const data = tvService.getPbbFeeds();
+        res.json(data);
+    } catch (err) {
+        console.error('PBB Feeds Error:', err);
+        res.status(500).json({ error: 'Failed to load PBB feeds' });
+    }
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'frontend/dist')));

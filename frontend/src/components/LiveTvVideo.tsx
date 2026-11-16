@@ -143,12 +143,24 @@ const LiveTvVideoInner: React.FC<LiveTvVideoProps> = ({
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showHud, setShowHud] = useState(true);
 
+  useEffect(() => {
+    if (typeof muted === 'boolean') {
+      setIsMuted(muted);
+      if (videoRef.current) {
+        videoRef.current.muted = muted;
+      }
+    }
+  }, [muted]);
+
   const canPip =
     typeof document !== 'undefined' &&
     (Boolean(document.pictureInPictureEnabled) ||
       typeof (HTMLVideoElement.prototype as WebkitPipVideo).webkitSetPresentationMode === 'function');
 
   const activeStream: TvStream | undefined = channel.streams[feedIndex] || channel.streams[0];
+  const activeStreamUrl = activeStream?.url;
+  const activeStreamUserAgent = activeStream?.userAgent;
+  const activeStreamReferrer = activeStream?.referrer;
   const mustProxy =
     !activeStream?.url ||
     activeStream.url.startsWith('http://') ||
@@ -421,21 +433,24 @@ const LiveTvVideoInner: React.FC<LiveTvVideoProps> = ({
       video.load();
     };
 
-    const handleCanPlay = () => {
+    const handlePlaying = () => {
       if (cancelled) return;
       const wasLoading = statusRef.current !== 'playing';
       updateStatus('playing');
       if (wasLoading && !isHoveringControlsRef.current) {
         scheduleHideHud();
       }
-      if (autoPlay) {
-        video.play().catch(() => {
-          if (!video.muted) {
-            video.muted = true;
-            video.play().catch(() => {});
-          }
-        });
-      }
+    };
+
+    const attemptAutoplay = () => {
+      if (!autoPlay || cancelled) return;
+      video.play().catch(() => {
+        if (!video.muted) {
+          video.muted = true;
+          setIsMuted(true);
+          video.play().catch(() => {});
+        }
+      });
     };
 
     const handleNativeError = () => {
@@ -475,13 +490,14 @@ const LiveTvVideoInner: React.FC<LiveTvVideoProps> = ({
         }));
         setLevels(parsedLevels);
         setCurrentLevel(-1);
-        if (autoPlay) {
-          video.play().catch(() => {
-            if (!video.muted) {
-              video.muted = true;
-              video.play().catch(() => {});
-            }
-          });
+        attemptAutoplay();
+      });
+
+      hls.on(Hls.Events.FRAG_BUFFERED, () => {
+        if (cancelled) return;
+        updateStatus('playing');
+        if (autoPlay && video.paused) {
+          attemptAutoplay();
         }
       });
 
@@ -523,22 +539,26 @@ const LiveTvVideoInner: React.FC<LiveTvVideoProps> = ({
         }
       });
 
-      video.addEventListener('playing', handleCanPlay);
+      video.addEventListener('playing', handlePlaying);
+      video.addEventListener('canplay', attemptAutoplay);
       hls.loadSource(streamUrl);
       hls.attachMedia(video);
 
       return () => {
         cancelled = true;
-        video.removeEventListener('playing', handleCanPlay);
+        video.removeEventListener('playing', handlePlaying);
+        video.removeEventListener('canplay', attemptAutoplay);
         cleanup();
       };
     } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
-      video.addEventListener('canplay', handleCanPlay);
+      video.addEventListener('canplay', attemptAutoplay);
+      video.addEventListener('playing', handlePlaying);
       video.addEventListener('error', handleNativeError);
       video.src = streamUrl;
       return () => {
         cancelled = true;
-        video.removeEventListener('canplay', handleCanPlay);
+        video.removeEventListener('canplay', attemptAutoplay);
+        video.removeEventListener('playing', handlePlaying);
         video.removeEventListener('error', handleNativeError);
         cleanup();
       };
@@ -548,7 +568,8 @@ const LiveTvVideoInner: React.FC<LiveTvVideoProps> = ({
       cancelled = true;
       cleanup();
     };
-  }, [activeStream, useProxy, feedIndex, channel.streams.length, autoPlay, retryNonce, updateStatus, scheduleHideHud]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeStreamUrl, activeStreamUserAgent, activeStreamReferrer, useProxy, feedIndex, channel.streams.length, autoPlay, retryNonce, updateStatus, scheduleHideHud]);
 
   const handleQualityChange = (lvlIdx: number) => {
     setCurrentLevel(lvlIdx);
@@ -681,7 +702,7 @@ const LiveTvVideoInner: React.FC<LiveTvVideoProps> = ({
         className="livetv-video-el"
         playsInline
         autoPlay={autoPlay}
-        muted={muted}
+        muted={isMuted}
         disableRemotePlayback
         onClick={scheduleHideHud}
         onDoubleClick={handleToggleFullscreen}

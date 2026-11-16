@@ -90,6 +90,17 @@ const CURATED_CHANNELS = [
         url: 'https://amg19223-amg19223c11-amgplt0352.playout.now3.amagi.tv/playlist/amg19223-amg19223c11-amgplt0352/playlist.m3u8'
     },
     {
+        id: 'curated:kapamilya-channel',
+        name: 'Kapamilya Channel (ABS-CBN)',
+        country: 'PH',
+        categories: ['entertainment', 'general'],
+        tvGroups: ['entertainment', 'general'],
+        primaryCategory: 'Entertainment',
+        logo: 'https://upload.wikimedia.org/wikipedia/commons/thumb/3/36/Kapamilya_Channel_2020.svg/512px-Kapamilya_Channel_2020.svg.png',
+        quality: '1080p',
+        url: 'https://cdn-ue1-prod.tsv2.amagi.tv/linear/amg01006-abs-cbn-kapcha-hls-abscbnono/index.m3u8'
+    },
+    {
         id: 'curated:tfc-guam',
         name: 'TFC (ABS-CBN)',
         country: 'PH',
@@ -1147,10 +1158,116 @@ async function proxyStream(req, res) {
     }
 }
 
+const PBB_FEEDS = [
+    {
+        id: 'pbb-cam-1',
+        name: 'PBB Cam 1 — Kapamilya Online Live 24/7 (Main House Feed)',
+        shortName: 'Cam 1 (Living Room)',
+        angle: 'Main House & Tasks 24/7',
+        icon: '📹',
+        description: 'Official 24/7 ABS-CBN live broadcast featuring Pinoy Big Brother daily primetime, living room tasks, and house activities.',
+        type: 'youtube',
+        quality: '1080p HD',
+        isLive: true,
+        badge: 'LIVE 24/7',
+        url: 'https://www.youtube-nocookie.com/embed/mKjyyrb5E7I',
+        externalUrl: 'https://www.youtube.com/watch?v=mKjyyrb5E7I'
+    },
+    {
+        id: 'pbb-cam-2',
+        name: 'PBB Cam 2 — Pinoy Big Brother Collab 3.0 Live Stream',
+        shortName: 'Cam 2 (Garden / Pool)',
+        angle: 'Activity Area & Primetime',
+        icon: '🌴',
+        description: 'Weekly task challenges, housemate garden activities, swimming pool, and special daily episodes.',
+        type: 'youtube',
+        quality: '1080p HD',
+        isLive: true,
+        badge: 'LIVE 24/7',
+        url: 'https://www.youtube-nocookie.com/embed/dGYzPvZXZ6g',
+        externalUrl: 'https://www.youtube.com/watch?v=dGYzPvZXZ6g'
+    },
+    {
+        id: 'pbb-cam-3',
+        name: 'PBB Cam 3 — Housemate Challenge & Task Feed',
+        shortName: 'Cam 3 (Dining & Kitchen)',
+        angle: 'Dining, Kitchen & Tasks',
+        icon: '🍽️',
+        description: 'Housemate cooking sessions, dining room strategy conversations, and 60-second Kuya challenges.',
+        type: 'youtube',
+        quality: '1080p HD',
+        isLive: true,
+        badge: 'LIVE 24/7',
+        url: 'https://www.youtube-nocookie.com/embed/p6kEjIcgBUg',
+        externalUrl: 'https://www.youtube.com/watch?v=p6kEjIcgBUg'
+    },
+    {
+        id: 'pbb-cam-4',
+        name: 'PBB Cam 4 — Confession Room & Spotlight Feed',
+        shortName: 'Cam 4 (Bedrooms)',
+        angle: 'Bedrooms & Confessions',
+        icon: '🛏️',
+        description: 'Housemate bedroom conversations, eviction reflections, and exclusive housemate spotlights.',
+        type: 'youtube',
+        quality: '1080p HD',
+        isLive: true,
+        badge: 'LIVE 24/7',
+        url: 'https://www.youtube-nocookie.com/embed/2e22DyRJ3Ms',
+        externalUrl: 'https://www.youtube.com/watch?v=2e22DyRJ3Ms'
+    },
+    {
+        id: 'pbb-official-yt',
+        name: 'Pinoy Big Brother Official YouTube Live',
+        shortName: 'Official YouTube Live',
+        angle: 'Official YouTube Channel',
+        icon: '🔴',
+        description: 'Official PBB YouTube stream for livestreams, onlineverse pre-shows, companion events, and eviction updates.',
+        type: 'youtube',
+        quality: '1080p',
+        isLive: true,
+        badge: 'YOUTUBE LIVE',
+        channelId: 'UCsumo4lY8cd4v8Xt5zG3eSg',
+        url: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCsumo4lY8cd4v8Xt5zG3eSg',
+        externalUrl: 'https://www.youtube.com/@PBBabscbn/live'
+    },
+    {
+        id: 'pbb-kol-yt',
+        name: 'Kapamilya Online Live 24/7 (ABS-CBN)',
+        shortName: 'Kapamilya Online Live',
+        angle: 'ABS-CBN Entertainment',
+        icon: '📺',
+        description: 'Continuous 24/7 official broadcast of ABS-CBN & PBB primetime programming on YouTube.',
+        type: 'youtube',
+        quality: '1080p',
+        isLive: true,
+        badge: 'YOUTUBE 24/7',
+        channelId: 'UCstEtN0pgOmCf02EdXsGChw',
+        url: 'https://www.youtube-nocookie.com/embed/live_stream?channel=UCstEtN0pgOmCf02EdXsGChw',
+        externalUrl: 'https://www.youtube.com/@ABSCBNEntertainment/live'
+    }
+];
+
+function getPbbFeeds() {
+    return {
+        title: 'Pinoy Big Brother 24/7 Live Stream',
+        subtitle: 'Bahay ni Kuya — All-Access Multi-Camera Feeds',
+        status: 'online',
+        updatedAt: new Date().toISOString(),
+        schedule: [
+            { title: '24/7 House Feeds', time: 'Round the Clock', days: 'Monday – Sunday' },
+            { title: 'Daily Primetime Episode', time: '10:15 PM PST', days: 'Monday – Friday' },
+            { title: 'Weekend Big Night & Eviction', time: '7:00 PM (Sat) / 7:15 PM (Sun)', days: 'Saturday & Sunday' }
+        ],
+        feeds: PBB_FEEDS
+    };
+}
+
 module.exports = {
     ensureTvIndex,
     getTvMeta,
     getFeaturedTvShelves,
     queryTvChannels,
-    proxyStream
+    proxyStream,
+    getPbbFeeds,
+    PBB_FEEDS
 };
