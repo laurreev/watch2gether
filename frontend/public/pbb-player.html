@@ -42,12 +42,11 @@
       align-items: center;
       justify-content: center;
       z-index: 10;
-      transition: opacity 0.2s ease;
       pointer-events: none;
     }
     .spinner {
-      width: 46px;
-      height: 46px;
+      width: 44px;
+      height: 44px;
       border: 3.5px solid rgba(255, 255, 255, 0.15);
       border-top-color: #ef4444;
       border-radius: 50%;
@@ -273,11 +272,14 @@
     const muteToggle = document.getElementById('mute-toggle');
 
     let player = null;
+    let isLoaded = false;
 
-    // Start muted by default to guarantee instant autoplay without browser blocks
+    // Start muted to guarantee instant playback
     video.muted = true;
 
     function hideLoading() {
+      if (isLoaded) return;
+      isLoaded = true;
       loadingOverlay.style.display = 'none';
       errorOverlay.style.display = 'none';
 
@@ -288,18 +290,11 @@
         unmuteBtn.style.display = 'none';
         muteToggle.textContent = '🔊';
       }
-      try {
-        window.parent.postMessage({ type: 'playerReady', channel: chParam }, '*');
-      } catch(e) {}
     }
 
-    // Dismiss loading overlay immediately as soon as video plays or advances
     video.addEventListener('playing', hideLoading);
     video.addEventListener('timeupdate', () => {
       if (video.currentTime > 0) hideLoading();
-    });
-    video.addEventListener('loadeddata', () => {
-      if (!video.paused) hideLoading();
     });
     video.addEventListener('canplay', () => {
       if (!video.paused) hideLoading();
@@ -308,42 +303,18 @@
     async function initApp() {
       shaka.polyfill.installAll();
       if (!shaka.Player.isBrowserSupported()) {
-        showError("Your browser does not support Shaka Player with encrypted media extensions.");
+        showError("Your browser does not support Shaka Player.");
         return;
       }
 
       player = new shaka.Player(video);
       player.addEventListener('error', onPlayerErrorEvent);
 
-      // Only show buffering spinner if buffering takes longer than 1.5 seconds (prevents flashing on micro-buffers)
-      let bufferingTimer = null;
-      player.addEventListener('buffering', (event) => {
-        if (event.buffering) {
-          if (!bufferingTimer) {
-            bufferingTimer = setTimeout(() => {
-              if (player && player.isBuffering()) {
-                document.getElementById('loading-label').textContent = 'Buffering live feed...';
-                loadingOverlay.style.display = 'flex';
-              }
-            }, 1500);
-          }
-        } else {
-          if (bufferingTimer) {
-            clearTimeout(bufferingTimer);
-            bufferingTimer = null;
-          }
-          hideLoading();
-        }
-      });
-
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         delete request.headers['Referer'];
         delete request.headers['referer'];
       });
 
-      // Stream config:
-      // safeSeekOffset: 4 starts safely in cached window, preventing live edge stalls
-      // stallEnabled + smallGapLimit automatically handles any timestamp drift
       player.configure({
         drm: {
           clearKeys: {
@@ -351,38 +322,13 @@
           }
         },
         streaming: {
-          bufferingGoal: 8,
+          bufferingGoal: 6,
           rebufferingGoal: 2,
-          bufferBehind: 15,
-          safeSeekOffset: 4,
-          startAtSegmentBoundary: true,
-          stallEnabled: true,
-          stallThreshold: 1,
-          stallSkip: 0.5,
-          smallGapLimit: 1.5,
-          jumpLargeGaps: true,
           retryParameters: {
-            maxAttempts: 4,
+            maxAttempts: 3,
             baseDelay: 500,
             backoffFactor: 1.5,
-            fuzzFactor: 0.3,
-            timeout: 10000
-          }
-        },
-        manifest: {
-          dash: {
-            autoCorrectDrift: true,
-            ignoreMinBufferTime: true
-          }
-        }
-      });
-
-      // Prevent seeking/rewinding on live stream
-      video.addEventListener('seeking', () => {
-        if (player && player.isLive()) {
-          const seekRange = player.seekRange();
-          if (seekRange && seekRange.end) {
-            video.currentTime = Math.max(seekRange.start, seekRange.end - 4);
+            timeout: 8000
           }
         }
       });
@@ -391,6 +337,7 @@
     }
 
     async function loadStream() {
+      isLoaded = false;
       document.getElementById('loading-label').textContent = 'Connecting to PBB Live Feed...';
       loadingOverlay.style.display = 'flex';
       errorOverlay.style.display = 'none';
