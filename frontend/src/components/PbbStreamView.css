@@ -617,6 +617,82 @@
   margin-top: 0.5rem;
 }
 
+.pbb-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pbb-extra-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* Quick Camera Switcher Bar (Mobile & Desktop) */
+.pbb-quick-cams-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  overflow-x: auto;
+  padding: 0.25rem 0.15rem;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.pbb-quick-cams-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.pbb-quick-cam-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.75);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #cbd5e1;
+  font-size: 0.82rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+  user-select: none;
+  outline: none;
+}
+
+.pbb-quick-cam-btn:hover {
+  background: rgba(30, 41, 59, 0.9);
+  color: #fff;
+  border-color: rgba(59, 130, 246, 0.4);
+}
+
+.pbb-quick-cam-btn.active {
+  background: rgba(59, 130, 246, 0.22);
+  border-color: #3b82f6;
+  color: #60a5fa;
+  box-shadow: 0 0 14px rgba(59, 130, 246, 0.3);
+}
+
+.pbb-quick-cam-icon {
+  font-size: 0.95rem;
+  line-height: 1;
+}
+
+.pbb-quick-cam-label {
+  font-size: 0.82rem;
+}
+
+.pbb-quick-cam-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #3b82f6;
+  box-shadow: 0 0 8px #3b82f6;
+}
+
 /* Mobile responsive */
 @media (max-width: 900px) {
   .pbb-view {
@@ -627,31 +703,196 @@
     grid-template-columns: 1fr;
   }
 
-  .pbb-quad-grid {
-    grid-template-columns: 1fr;
+  .pbb-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
   }
 }
 
-@media (max-width: 600px) {
-  .pbb-title {
-    font-size: 1.2rem;
+@media (max-width: 680px) {
+  .pbb-view {
+    padding: 0.6rem 0.6rem 3rem 0.6rem;
+  }
+
+  .pbb-container {
+    gap: 1rem;
   }
 
   .pbb-header {
-    padding: 1rem;
+    padding: 0.85rem 1rem;
+    gap: 0.85rem;
+    border-radius: 14px;
+  }
+
+  .pbb-eye-badge {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+  }
+
+  .pbb-eye-badge svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .pbb-title {
+    font-size: 1.18rem;
+    gap: 0.35rem;
+  }
+
+  .pbb-subtitle {
+    font-size: 0.78rem;
+    line-height: 1.35;
+  }
+
+  .pbb-live-pill {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.5rem;
   }
 
   .pbb-header-actions {
     width: 100%;
-    justify-content: stretch;
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .pbb-header-actions .pbb-btn {
+  .pbb-view-toggle {
+    width: 100%;
+    gap: 0.4rem;
+  }
+
+  .pbb-view-toggle .pbb-btn {
     flex: 1;
     justify-content: center;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.8rem;
   }
 
+  .pbb-extra-actions {
+    width: 100%;
+    gap: 0.4rem;
+  }
+
+  .pbb-extra-actions .pbb-btn {
+    flex: 1;
+    justify-content: center;
+    padding: 0.5rem 0.65rem;
+    font-size: 0.8rem;
+  }
+
+  /* Keep Quad View 2x2 on Mobile for genuine multi-cam CCTV experience */
+  .pbb-quad-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+  }
+
+  .pbb-quad-cell {
+    border-radius: 8px;
+  }
+
+  .pbb-quad-header {
+    top: 5px;
+    left: 5px;
+    right: 5px;
+  }
+
+  .pbb-quad-tag {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+  }
+
+  .pbb-badge {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+
+  .pbb-player-stage {
+    border-radius: 12px;
+  }
+
+  /* Active Feed Bar on Mobile */
+  .pbb-feed-bar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.75rem 0.85rem;
+    border-radius: 10px;
+  }
+
+  .pbb-feed-info {
+    width: 100%;
+    gap: 0.5rem;
+  }
+
+  .pbb-feed-icon {
+    font-size: 1.25rem;
+  }
+
+  .pbb-feed-name {
+    font-size: 0.95rem;
+  }
+
+  .pbb-feed-desc {
+    font-size: 0.75rem;
+  }
+
+  .pbb-feed-meta {
+    width: 100%;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  /* Camera list cards on mobile */
   .pbb-cards-grid {
     grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .pbb-cam-card {
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
+
+  .pbb-card-action-btn {
+    padding: 0.45rem 0.75rem;
+    font-size: 0.78rem;
+  }
+
+  /* Schedule on mobile */
+  .pbb-info-card {
+    padding: 1rem;
+    border-radius: 12px;
+  }
+
+  .pbb-schedule-row {
+    padding: 0.6rem 0.75rem;
+    gap: 0.5rem;
+  }
+
+  .pbb-schedule-name {
+    font-size: 0.82rem;
+  }
+
+  .pbb-schedule-days {
+    font-size: 0.72rem;
+  }
+
+  .pbb-schedule-time {
+    font-size: 0.8rem;
+  }
+}
+
+/* Landscape Mobile Full-Screen Optimization */
+@media (max-height: 520px) and (orientation: landscape) {
+  .pbb-view {
+    padding: 0.25rem 0.5rem 2rem 0.5rem;
+  }
+
+  .pbb-header {
+    padding: 0.5rem 0.75rem;
+  }
+
+  .pbb-player-stage {
+    max-height: 80vh;
   }
 }

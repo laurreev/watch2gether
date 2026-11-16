@@ -210,42 +210,47 @@ export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether })
           </div>
 
           <div className="pbb-header-actions">
-            <button
-              type="button"
-              className={`pbb-btn ${!isQuadView ? 'pbb-btn-active' : 'pbb-btn-secondary'}`}
-              onClick={() => setIsQuadView(false)}
-              title="Single Camera Focus"
-            >
-              <SingleViewIcon />
-              <span>Single Cam</span>
-            </button>
-            <button
-              type="button"
-              className={`pbb-btn ${isQuadView ? 'pbb-btn-active' : 'pbb-btn-secondary'}`}
-              onClick={() => setIsQuadView(true)}
-              title="Quad Multi-Cam Control Room"
-            >
-              <QuadGridIcon />
-              <span>Quad View</span>
-            </button>
-            <button
-              type="button"
-              className="pbb-btn pbb-btn-secondary"
-              onClick={toggleFullscreen}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
-            >
-              {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
-              <span>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
-            </button>
-            <button
-              type="button"
-              className="pbb-btn pbb-btn-room"
-              onClick={() => handleWatchFeedTogether(activeFeed)}
-              title="Launch Watch Together Room"
-            >
-              <span>🍿</span>
-              <span>Watch with Friends</span>
-            </button>
+            <div className="pbb-view-toggle">
+              <button
+                type="button"
+                className={`pbb-btn ${!isQuadView ? 'pbb-btn-active' : 'pbb-btn-secondary'}`}
+                onClick={() => setIsQuadView(false)}
+                title="Single Camera Focus"
+              >
+                <SingleViewIcon />
+                <span>Single Cam</span>
+              </button>
+              <button
+                type="button"
+                className={`pbb-btn ${isQuadView ? 'pbb-btn-active' : 'pbb-btn-secondary'}`}
+                onClick={() => setIsQuadView(true)}
+                title="Quad Multi-Cam Control Room"
+              >
+                <QuadGridIcon />
+                <span>Quad View</span>
+              </button>
+            </div>
+
+            <div className="pbb-extra-actions">
+              <button
+                type="button"
+                className="pbb-btn pbb-btn-secondary"
+                onClick={toggleFullscreen}
+                title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+              >
+                {isFullscreen ? <ExitFullscreenIcon /> : <FullscreenIcon />}
+                <span>{isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}</span>
+              </button>
+              <button
+                type="button"
+                className="pbb-btn pbb-btn-room"
+                onClick={() => handleWatchFeedTogether(activeFeed)}
+                title="Launch Watch Together Room"
+              >
+                <span>🍿</span>
+                <span>Watch with Friends</span>
+              </button>
+            </div>
           </div>
         </header>
 
@@ -322,6 +327,27 @@ export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether })
               })}
             </div>
           )}
+        </div>
+
+        {/* Quick Camera Switcher Bar (Mobile & Desktop 1-tap switching) */}
+        <div className="pbb-quick-cams-bar" role="tablist" aria-label="Quick camera switcher">
+          {quadCameras.map((cam) => {
+            const isActive = !isQuadView && activeFeed.id === cam.id;
+            return (
+              <button
+                key={cam.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                className={`pbb-quick-cam-btn ${isActive ? 'active' : ''}`}
+                onClick={() => handleSelectFeed(cam)}
+              >
+                <span className="pbb-quick-cam-icon">{cam.icon || '📹'}</span>
+                <span className="pbb-quick-cam-label">{cam.shortName}</span>
+                {isActive && <span className="pbb-quick-cam-dot" />}
+              </button>
+            );
+          })}
         </div>
 
         {/* Active Feed Status Bar */}

@@ -177,8 +177,41 @@
       transition: opacity 0.25s ease;
       z-index: 15;
     }
-    #player-container:hover #controls {
+    #player-container:hover #controls,
+    #player-container.show-controls #controls {
       opacity: 1;
+    }
+
+    @media (max-width: 600px) {
+      #unmute-btn {
+        top: 10px;
+        left: 10px;
+        padding: 6px 12px;
+        font-size: 11px;
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.6);
+      }
+      #buffering-badge {
+        top: 10px;
+        right: 10px;
+        padding: 4px 10px;
+        font-size: 10px;
+      }
+      #controls {
+        padding: 8px 12px;
+      }
+      .ctrl-btn {
+        padding: 6px 8px;
+        font-size: 13px;
+        min-width: 36px;
+        min-height: 36px;
+      }
+      .live-badge {
+        font-size: 10px;
+      }
+      .live-dot {
+        width: 6px;
+        height: 6px;
+      }
     }
     .live-badge {
       display: inline-flex;
@@ -226,7 +259,7 @@
 </head>
 <body>
   <div id="player-container">
-    <video id="v" autoplay muted playsinline></video>
+    <video id="v" autoplay muted playsinline webkit-playsinline></video>
 
     <!-- Connecting Spinner Overlay -->
     <div id="loading-overlay">
@@ -1397,13 +1430,48 @@ startPlayer();
         }
       };
 
-      // Click anywhere to play/unmute
-      document.getElementById('player-container').addEventListener('click', (e) => {
+      // Mobile touch & tap handling
+      let controlsTimeout = null;
+      const playerContainer = document.getElementById('player-container');
+
+      function showControlsTemporarily() {
+        playerContainer.classList.add('show-controls');
+        if (controlsTimeout) clearTimeout(controlsTimeout);
+        controlsTimeout = setTimeout(() => {
+          playerContainer.classList.remove('show-controls');
+        }, 3500);
+      }
+
+      // Touch double tap -> fullscreen, single tap -> show controls
+      let lastTap = 0;
+      playerContainer.addEventListener('touchend', (e) => {
+        if (e.target.closest('button')) return;
+        const now = Date.now();
+        const tapDiff = now - lastTap;
+        if (tapDiff < 300 && tapDiff > 0) {
+          e.preventDefault();
+          window.toggleFullscreen();
+          return;
+        }
+        lastTap = now;
+
+        if (playerContainer.classList.contains('show-controls')) {
+          playerContainer.classList.remove('show-controls');
+          if (controlsTimeout) clearTimeout(controlsTimeout);
+        } else {
+          showControlsTemporarily();
+        }
+      });
+
+      // Click anywhere to play/unmute or toggle controls
+      playerContainer.addEventListener('click', (e) => {
         if (e.target.closest('button')) return;
         if (v.paused) {
           v.play().catch(() => {});
         } else if (v.muted) {
           window.toggleMute();
+        } else {
+          showControlsTemporarily();
         }
       });
     })();
