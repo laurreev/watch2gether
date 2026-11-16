@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <meta name="referrer" content="no-referrer">
-  <title>PBB Live Camera</title>
+  <title>PBB Live Camera Feed</title>
   <script src="https://cdn.jsdelivr.net/npm/shaka-player@4.14.10/dist/shaka-player.compiled.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -15,6 +15,7 @@
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       color: #fff;
+      user-select: none;
     }
     #player-container {
       position: relative;
@@ -32,17 +33,19 @@
       object-fit: contain;
       background: #000;
     }
-    /* Loading overlay */
+
+    /* Connecting Loading Overlay */
     #loading-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.85);
+      background: rgba(0, 0, 0, 0.88);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 10;
       pointer-events: none;
+      transition: opacity 0.25s ease;
     }
     .spinner {
       width: 44px;
@@ -50,7 +53,7 @@
       border: 3.5px solid rgba(255, 255, 255, 0.15);
       border-top-color: #ef4444;
       border-radius: 50%;
-      animation: spin 0.75s linear infinite;
+      animation: spin 0.8s linear infinite;
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
@@ -60,48 +63,39 @@
       font-size: 13px;
       color: #cbd5e1;
       font-weight: 500;
+      letter-spacing: 0.02em;
     }
-    /* Error / Retry overlay */
-    #error-overlay {
+
+    /* Non-blocking Buffering Badge */
+    #buffering-badge {
       display: none;
       position: absolute;
-      inset: 0;
-      background: rgba(0, 0, 0, 0.9);
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      z-index: 20;
-      padding: 20px;
-      text-align: center;
-    }
-    .error-title {
-      font-size: 16px;
-      font-weight: 700;
-      color: #f87171;
-      margin-bottom: 6px;
-    }
-    .error-desc {
-      font-size: 12px;
-      color: #94a3b8;
-      max-width: 320px;
-      margin-bottom: 16px;
-      line-height: 1.4;
-    }
-    .retry-btn {
-      background: #ef4444;
-      color: #fff;
-      border: none;
-      padding: 8px 18px;
-      border-radius: 8px;
-      font-size: 13px;
+      top: 14px;
+      right: 14px;
+      z-index: 12;
+      background: rgba(15, 23, 42, 0.88);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11px;
       font-weight: 600;
-      cursor: pointer;
-      transition: background 0.2s;
+      color: #f1f5f9;
+      align-items: center;
+      gap: 6px;
+      pointer-events: none;
+      backdrop-filter: blur(6px);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
     }
-    .retry-btn:hover {
-      background: #dc2626;
+    .mini-spinner {
+      width: 11px;
+      height: 11px;
+      border: 2px solid rgba(255, 255, 255, 0.2);
+      border-top-color: #ef4444;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
     }
-    /* Unmute overlay button */
+
+    /* Unmute Floating Button */
     #unmute-btn {
       display: none;
       position: absolute;
@@ -126,13 +120,55 @@
       background: #ef4444;
       transform: scale(1.04);
     }
-    /* Clean controls overlay (Mute, PiP, Fullscreen - NO seek / pause) */
+
+    /* Error / Retry overlay */
+    #error-overlay {
+      display: none;
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.92);
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 20;
+      padding: 20px;
+      text-align: center;
+    }
+    .error-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #f87171;
+      margin-bottom: 6px;
+    }
+    .error-desc {
+      font-size: 12px;
+      color: #94a3b8;
+      max-width: 340px;
+      margin-bottom: 16px;
+      line-height: 1.4;
+    }
+    .retry-btn {
+      background: #ef4444;
+      color: #fff;
+      border: none;
+      padding: 8px 20px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .retry-btn:hover {
+      background: #dc2626;
+    }
+
+    /* Hover Controls Bar */
     #controls {
       position: absolute;
       bottom: 0;
       left: 0;
       right: 0;
-      padding: 10px 16px;
+      padding: 12px 18px;
       background: linear-gradient(to top, rgba(0, 0, 0, 0.85) 0%, transparent 100%);
       display: flex;
       align-items: center;
@@ -176,7 +212,7 @@
       color: #fff;
       padding: 6px 10px;
       border-radius: 6px;
-      font-size: 12px;
+      font-size: 13px;
       cursor: pointer;
       display: inline-flex;
       align-items: center;
@@ -190,23 +226,33 @@
 </head>
 <body>
   <div id="player-container">
-    <video id="video" autoplay playsinline muted></video>
+    <video id="v" autoplay muted playsinline></video>
 
+    <!-- Connecting Spinner Overlay -->
     <div id="loading-overlay">
       <div class="spinner"></div>
       <div class="loading-text" id="loading-label">Connecting to PBB Live Feed...</div>
     </div>
 
+    <!-- Non-blocking Buffering Badge -->
+    <div id="buffering-badge">
+      <span class="mini-spinner"></span>
+      <span>Buffering...</span>
+    </div>
+
+    <!-- Floating Unmute Button -->
+    <button id="unmute-btn" onclick="toggleMute(event)">
+      🔊 Click to Unmute Audio
+    </button>
+
+    <!-- Error / Retry Overlay -->
     <div id="error-overlay">
       <div class="error-title">Signal Interrupted</div>
       <div class="error-desc" id="error-desc">Camera broadcast feed could not be loaded. Please retry or switch cameras.</div>
       <button class="retry-btn" onclick="retryStream(event)">Reconnect</button>
     </div>
 
-    <button id="unmute-btn" onclick="toggleMute(event)">
-      🔊 Click to Unmute Audio
-    </button>
-
+    <!-- Bottom Controls Overlay -->
     <div id="controls">
       <div class="live-badge">
         <span class="live-dot"></span>
@@ -214,234 +260,1153 @@
       </div>
       <div class="control-actions">
         <button class="ctrl-btn" id="mute-toggle" onclick="toggleMute(event)" title="Mute/Unmute">🔇</button>
-        <button class="ctrl-btn" id="pip-btn" onclick="togglePip(event)" title="Picture in Picture">🔲</button>
+        <button class="ctrl-btn" id="pip-btn" onclick="togglePip(event)" title="Picture-in-Picture">🔲</button>
         <button class="ctrl-btn" id="fs-btn" onclick="toggleFullscreen(event)" title="Fullscreen">⛶</button>
       </div>
     </div>
   </div>
 
+  <!-- Compatibility placeholders for original engine elements -->
+  <div id="status" style="display:none;"></div>
+  <div id="error" style="display:none;"><span id="errMsg"></span></div>
+
   <script>
-    const AKAMAI = "https://absp-live.akamaized.net";
-    const CHANNELS = {
-      all: {
-        name: "Cam 1 — All Access (Living Area)",
-        dash: AKAMAI + "/dash/live/2099522/pbbcollab30allaccesslivestream/manifest.mpd",
-        hls: AKAMAI + "/hls/live/2099522/pbbcollab30allaccesslivestream/master.m3u8",
-        kid: "8150b74d16324bb4b2ff62e3e202fc7a",
-        key: "0c5ed4f9db9d4ee61bbc91b3a51ef8b5"
-      },
-      ext: {
-        name: "Cam 2 — External Den (Garden & Pool)",
-        dash: AKAMAI + "/dash/live/2099522/pbbcollab30allaccesslivestream-externalden/manifest.mpd",
-        hls: AKAMAI + "/hls/live/2099522/pbbcollab30allaccesslivestream-externalden/master.m3u8",
-        kid: "b750a40736a24e60b5a4f256208b92c5",
-        key: "af07292597f692726dcac2bd297ddf8e"
-      },
-      din: {
-        name: "Cam 3 — Dining Area & Kitchen",
-        dash: AKAMAI + "/dash/live/2099522/pbbcollab30allaccesslivestream-diningarea/manifest.mpd",
-        hls: AKAMAI + "/hls/live/2099522/pbbcollab30allaccesslivestream-diningarea/master.m3u8",
-        kid: "ea6588d030c94ca89925ac0c49974430",
-        key: "3e6de4afee1eff8e14f9506b76ac9ee6"
-      },
-      main: {
-        name: "Cam 4 — PBB Collab 3.0 Live Broadcast",
-        dash: AKAMAI + "/dash/live/2099522/pinoybigbrothercollabedition30live/manifest.mpd",
-        hls: AKAMAI + "/hls/live/2099522/pinoybigbrothercollabedition30live/master.m3u8",
-        kid: "1044e7ece2d741bcafe80d8613da104f",
-        key: "f5e17f169ff05ea40c5d3f065f523942"
-      }
-    };
 
-    CHANNELS['pbb-cam-1'] = CHANNELS['all'];
-    CHANNELS['pbb-cam-2'] = CHANNELS['ext'];
-    CHANNELS['pbb-cam-3'] = CHANNELS['din'];
-    CHANNELS['pbb-cam-4'] = CHANNELS['main'];
+// ═══════════════════════════════════════════════════
+// Channel config — direct Akamai CDN URLs
+// All requests go through no-referrer sandbox bridge to bypass domain whitelist
+// ═══════════════════════════════════════════════════
+const AKAMAI = "https://absp-live.akamaized.net";
+const CHANNELS = {
+  all:  { dash: AKAMAI+"/dash/live/2099522/pbbcollab30allaccesslivestream/manifest.mpd",
+          hls:  AKAMAI+"/hls/live/2099522/pbbcollab30allaccesslivestream/master.m3u8",
+          kid: "8150b74d16324bb4b2ff62e3e202fc7a", key: "0c5ed4f9db9d4ee61bbc91b3a51ef8b5" },
+  ext:  { dash: AKAMAI+"/dash/live/2099522/pbbcollab30allaccesslivestream-externalden/manifest.mpd",
+          hls:  AKAMAI+"/hls/live/2099522/pbbcollab30allaccesslivestream-externalden/master.m3u8",
+          kid: "b750a40736a24e60b5a4f256208b92c5", key: "af07292597f692726dcac2bd297ddf8e" },
+  din:  { dash: AKAMAI+"/dash/live/2099522/pbbcollab30allaccesslivestream-diningarea/manifest.mpd",
+          hls:  AKAMAI+"/hls/live/2099522/pbbcollab30allaccesslivestream-diningarea/master.m3u8",
+          kid: "ea6588d030c94ca89925ac0c49974430", key: "3e6de4afee1eff8e14f9506b76ac9ee6" },
+  main: { dash: AKAMAI+"/dash/live/2099522/pinoybigbrothercollabedition30live/manifest.mpd",
+          hls:  AKAMAI+"/hls/live/2099522/pinoybigbrothercollabedition30live/master.m3u8",
+          kid: "1044e7ece2d741bcafe80d8613da104f", key: "f5e17f169ff05ea40c5d3f065f523942" },
+};
 
-    const params = new URLSearchParams(location.search);
-    const chParam = (params.get('ch') || 'all').toLowerCase();
-    const channel = CHANNELS[chParam] || CHANNELS['all'];
 
-    document.getElementById('channel-name').textContent = channel.name;
+CHANNELS.all.name = "Cam 1 — All Access (Living Area)";
+CHANNELS.ext.name = "Cam 2 — External Den (Garden & Pool)";
+CHANNELS.din.name = "Cam 3 — Dining Area & Kitchen";
+CHANNELS.main.name = "Cam 4 — PBB Collab 3.0 Live Broadcast";
 
-    const video = document.getElementById('video');
-    const loadingOverlay = document.getElementById('loading-overlay');
-    const errorOverlay = document.getElementById('error-overlay');
-    const errorDesc = document.getElementById('error-desc');
-    const unmuteBtn = document.getElementById('unmute-btn');
-    const muteToggle = document.getElementById('mute-toggle');
+CHANNELS["pbb-cam-1"] = CHANNELS["cam1"] = CHANNELS["1"] = CHANNELS.all;
+CHANNELS["pbb-cam-2"] = CHANNELS["cam2"] = CHANNELS["2"] = CHANNELS.ext;
+CHANNELS["pbb-cam-3"] = CHANNELS["cam3"] = CHANNELS["3"] = CHANNELS.din;
+CHANNELS["pbb-cam-4"] = CHANNELS["cam4"] = CHANNELS["4"] = CHANNELS.main;
 
-    let player = null;
-    let isLoaded = false;
+const params = new URLSearchParams(location.search);
+const chId = params.get("ch") || "all";
+const ch = CHANNELS[chId] || CHANNELS.all;
+const lowBandwidth = params.get("quality") === "low";
 
-    // Start muted to guarantee instant playback
-    video.muted = true;
+const video = document.getElementById("v");
+const errorEl = document.getElementById("error");
+const statusEl = document.getElementById("status");
+let player = null;
+let iosState = null;
 
-    function hideLoading() {
-      if (isLoaded) return;
-      isLoaded = true;
-      loadingOverlay.style.display = 'none';
-      errorOverlay.style.display = 'none';
+function setStatus(msg) { if(!msg){statusEl.style.display="none";return;} statusEl.style.display="block"; statusEl.textContent += msg+"\n"; console.log("[S]",msg); }
 
-      if (video.muted) {
-        unmuteBtn.style.display = 'flex';
-        muteToggle.textContent = '🔇';
-      } else {
-        unmuteBtn.style.display = 'none';
-        muteToggle.textContent = '🔊';
+// ═══════════════════════════════════════════════════
+// Sandbox Bridge — fetch from Akamai with no-referrer
+// Strips origin/referrer so Akamai cannot see requesting domain
+// ═══════════════════════════════════════════════════
+let bridgeIframe = null, bridgeReady = false, bridgeInitP = null, bridgeSeq = 0;
+const bridgePending = new Map();
+
+window.addEventListener("message", (e) => {
+  const m = e?.data;
+  if (!m || typeof m !== "object") return;
+  if (m.type === "BR_READY") { bridgeReady = true; return; }
+  if (m.type === "BR_RES" && m.id) {
+    const p = bridgePending.get(m.id);
+    if (!p) return;
+    bridgePending.delete(m.id);
+    if (p.t) clearTimeout(p.t);
+    p.resolve(m);
+  }
+});
+
+function ensureBridge() {
+  if (bridgeReady && bridgeIframe?.contentWindow) return Promise.resolve(bridgeIframe.contentWindow);
+  if (bridgeInitP) return bridgeInitP;
+  bridgeInitP = new Promise((resolve) => {
+    const f = document.createElement("iframe");
+    f.setAttribute("sandbox", "allow-scripts");
+    f.setAttribute("referrerpolicy", "no-referrer");
+    f.style.cssText = "display:none!important;width:0!important;height:0!important;border:0!important;position:absolute!important;";
+    f.srcdoc = [
+      "<!DOCTYPE html><html><head><meta charset=utf-8><meta name=referrer content=no-referrer></head><body><scr"+"ipt>",
+      "window.addEventListener('message',async ev=>{",
+      "const m=ev.data;if(!m||typeof m!=='object')return;",
+      "if(m.type==='BR_PING'){parent.postMessage({type:'BR_READY'},'*');return}",
+      "if(m.type!=='BR_FETCH'||!m.id||!m.url)return;",
+      "try{const r=await fetch(m.url,{method:'GET',mode:'cors',credentials:'omit',referrerPolicy:'no-referrer',cache:'no-store'});",
+      "const b=await r.arrayBuffer();",
+      "parent.postMessage({type:'BR_RES',id:m.id,ok:r.ok,status:r.status,data:b},'*',[b]);",
+      "}catch(e){parent.postMessage({type:'BR_RES',id:m.id,ok:false,status:0,error:String(e?.message||e)},'*');}",
+      "});parent.postMessage({type:'BR_READY'},'*');",
+      "</scr"+"ipt></body></html>"
+    ].join("\n");
+    let elapsed = 0;
+    const iv = setInterval(() => {
+      elapsed += 50;
+      if (bridgeReady && f.contentWindow) { clearInterval(iv); resolve(f.contentWindow); }
+      else if (elapsed > 8000) { clearInterval(iv); console.warn("[Bridge] Timeout after 8s"); bridgeReady = true; resolve(f.contentWindow); }
+      else if (f.contentWindow) { try { f.contentWindow.postMessage({type:"BR_PING"},"*"); } catch(e){} }
+    }, 50);
+    bridgeIframe = f;
+    document.body.appendChild(f);
+  });
+  return bridgeInitP;
+}
+
+// Direct fetch with no-referrer (works on iOS since page is on freeshorts.tech)
+async function directFetch(url) {
+  const r = await fetch(url, { method: "GET", credentials: "omit", cache: "no-store" });
+  const b = await r.arrayBuffer();
+  return { ok: r.ok, status: r.status, data: b };
+}
+
+function bridgeFetch(url, timeout = 15000) {
+  // iOS/Safari: use freeshorts.tech nginx proxy (same-origin, proven to work)
+  // Desktop: use sandbox bridge iframe (sends Origin: null)
+  if (isIOS) {
+    const proxyUrl = url.replace("https://absp-live.akamaized.net/", "/");
+    return directFetch(proxyUrl);
+  }
+  return new Promise(async (resolve, reject) => {
+    const win = await ensureBridge();
+    const id = ++bridgeSeq;
+    const t = setTimeout(() => { bridgePending.delete(id); reject(new Error("Bridge timeout")); }, timeout);
+    bridgePending.set(id, { resolve, t });
+    win.postMessage({ type: "BR_FETCH", id, url }, "*");
+  });
+}
+
+// ═══════════════════════════════════════════════════
+// Detection
+// ═══════════════════════════════════════════════════
+const _ua = navigator.userAgent;
+const isIOS = /iPad|iPhone|iPod/.test(_ua) || (/Macintosh/.test(_ua) && navigator.maxTouchPoints > 1);
+const isSafari = isIOS || (/Safari/i.test(_ua) && !/Chrome|Chromium|CriOS|FxiOS|Firefox/i.test(_ua));
+const MSE = window.ManagedMediaSource || window.MediaSource;
+const canMSE = !!MSE;
+const needManualDecrypt = isSafari && canMSE && !!crypto?.subtle;
+
+// ═══════════════════════════════════════════════════
+// MP4 Box helpers (for iOS manual CENC decryption)
+// ═══════════════════════════════════════════════════
+
+function readU32(dv, off) { return dv.getUint32(off, false); }
+function readStr(dv, off, len) { let s=""; for(let i=0;i<len;i++) s+=String.fromCharCode(dv.getUint8(off+i)); return s; }
+function writeStr(dv, off, s) { for(let i=0;i<s.length;i++) dv.setUint8(off+i, s.charCodeAt(i)); }
+function writeU32(dv, off, v) { dv.setUint32(off, v, false); }
+
+function findBox(data, type, start, end) {
+  let pos = start;
+  const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  while (pos + 8 <= end) {
+    let size = readU32(dv, pos);
+    const bt = readStr(dv, pos + 4, 4);
+    if (size === 0) size = end - pos;
+    if (size < 8) break;
+    if (bt === type) return [pos, size];
+    pos += size;
+  }
+  return null;
+}
+
+function findBoxPath(data, path, start, end) {
+  if (!path.length) return null;
+  const box = findBox(data, path[0], start, end);
+  if (!box) return null;
+  if (path.length === 1) return box;
+  return findBoxPath(data, path.slice(1), box[0] + 8, box[0] + box[1]);
+}
+
+function rebuildWithoutBoxes(data, removeTypes) {
+  const parts = [];
+  const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  parts.push(data.subarray(0, 8));
+  let pos = 8;
+  const containers = ["trak","mdia","minf","stbl","moov","moof","traf"];
+  while (pos + 8 <= data.length) {
+    let size = readU32(dv, pos);
+    const type = readStr(dv, pos + 4, 4);
+    if (size === 0) size = data.length - pos;
+    if (size < 8) break;
+    if (removeTypes.includes(type)) { pos += size; continue; }
+    if (containers.includes(type) && size > 8) {
+      parts.push(rebuildWithoutBoxes(data.subarray(pos, pos + size), removeTypes));
+    } else {
+      parts.push(data.subarray(pos, pos + size));
+    }
+    pos += size;
+  }
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  new DataView(out.buffer).setUint32(0, total, false);
+  return out;
+}
+
+function removeSinfFromEntry(data, start, end) {
+  const sinf = findBox(data, "sinf", start + 8, end);
+  if (!sinf) return null;
+  const before = data.subarray(start, sinf[0]);
+  const after = data.subarray(sinf[0] + sinf[1], end);
+  const out = new Uint8Array(before.length + after.length);
+  out.set(before, 0); out.set(after, before.length);
+  new DataView(out.buffer).setUint32(0, out.length, false);
+  return out;
+}
+
+// ═══════════════════════════════════════════════════
+// Strip DRM from init segment
+// ═══════════════════════════════════════════════════
+
+function clearInit(input) {
+  const parts = [];
+  const dv = new DataView(input.buffer, input.byteOffset, input.byteLength);
+  let pos = 0;
+  while (pos + 8 <= input.length) {
+    let size = readU32(dv, pos);
+    const type = readStr(dv, pos + 4, 4);
+    if (size === 0) size = input.length - pos;
+    if (size < 8) break;
+    if (type === "pssh") { pos += size; continue; }
+    if (type === "moov") { const c = cleanMoov(input.subarray(pos, pos + size)); if (c) parts.push(c); pos += size; continue; }
+    parts.push(input.subarray(pos, pos + size));
+    pos += size;
+  }
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+function cleanMoov(moov) {
+  const parts = [];
+  const dv = new DataView(moov.buffer, moov.byteOffset, moov.byteLength);
+  let pos = 8;
+  while (pos + 8 <= moov.length) {
+    let size = readU32(dv, pos);
+    const type = readStr(dv, pos + 4, 4);
+    if (size === 0) size = moov.length - pos;
+    if (size < 8) break;
+    if (type === "pssh") { pos += size; continue; }
+    if (type === "trak") { const c = cleanTrak(moov.subarray(pos, pos + size)); if (c) parts.push(c); pos += size; continue; }
+    parts.push(moov.subarray(pos, pos + size));
+    pos += size;
+  }
+  if (!parts.length) return null;
+  const bodyLen = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(8 + bodyLen);
+  const outDv = new DataView(out.buffer);
+  writeU32(outDv, 0, 8 + bodyLen); writeStr(outDv, 4, "moov");
+  let off = 8;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+function cleanTrak(trak) {
+  const hdlr = findBoxPath(trak, ["mdia", "hdlr"], 8, trak.length);
+  if (hdlr) {
+    const hdlrDv = new DataView(trak.buffer, trak.byteOffset + hdlr[0], hdlr[1]);
+    if (hdlr[1] >= 20) {
+      const ht = readStr(hdlrDv, 16, 4);
+      if (ht === "text" || ht === "subt" || ht === "sbtl") return null;
+    }
+  }
+  const out = new Uint8Array(trak.length);
+  out.set(trak);
+  const outDv = new DataView(out.buffer, out.byteOffset, out.byteLength);
+  const stbl = findBoxPath(out, ["mdia","minf","stbl"], 8, out.length);
+  if (stbl) {
+    const stsd = findBox(out, "stsd", stbl[0] + 8, stbl[0] + stbl[1]);
+    if (stsd) {
+      let ePos = stsd[0] + 16;
+      while (ePos + 8 <= stsd[0] + stsd[1]) {
+        const eSize = readU32(outDv, ePos);
+        const eType = readStr(outDv, ePos + 4, 4);
+        if (eSize < 8) break;
+        if (eType === "encv") writeStr(outDv, ePos + 4, "avc1");
+        if (eType === "enca") writeStr(outDv, ePos + 4, "mp4a");
+        if (eType === "encs") writeStr(outDv, ePos + 4, "stpp");
+        ePos += eSize;
       }
     }
+  }
+  return rebuildWithoutBoxes(out, ["sinf", "pssh"]);
+}
 
-    video.addEventListener('playing', hideLoading);
-    video.addEventListener('timeupdate', () => {
-      if (video.currentTime > 0) hideLoading();
-    });
-    video.addEventListener('canplay', () => {
-      if (!video.paused) hideLoading();
-    });
+// ═══════════════════════════════════════════════════
+// Decrypt CENC segment using WebCrypto AES-CTR
+// ═══════════════════════════════════════════════════
 
-    async function initApp() {
-      shaka.polyfill.installAll();
-      if (!shaka.Player.isBrowserSupported()) {
-        showError("Your browser does not support Shaka Player.");
-        return;
+function incrementCounter(counter, byteCount) {
+  let carry = Math.ceil(byteCount / 16);
+  for (let i = 15; i >= 8 && carry > 0; i--) {
+    const val = counter[i] + carry;
+    counter[i] = val & 0xFF;
+    carry = val >>> 8;
+  }
+}
+
+async function decryptSegment(input, cryptoKey) {
+  const data = new Uint8Array(input);
+  const dv = new DataView(data.buffer, data.byteOffset, data.byteLength);
+  const moof = findBox(data, "moof", 0, data.length);
+  if (!moof) return data;
+  const traf = findBox(data, "traf", moof[0] + 8, moof[0] + moof[1]);
+  if (!traf) return data;
+  const senc = findBox(data, "senc", traf[0] + 8, traf[0] + traf[1]);
+  if (!senc) return data;
+  const sencDv = new DataView(data.buffer, data.byteOffset + senc[0], senc[1]);
+  const sencFlags = sencDv.getUint32(8, false) & 0xFFFFFF;
+  const useSubsamples = (sencFlags & 0x02) !== 0;
+  const sampleCount = sencDv.getUint32(12, false);
+  const samples = [];
+  let sencPos = 16;
+  for (let i = 0; i < sampleCount; i++) {
+    const iv = new Uint8Array(16);
+    for (let j = 0; j < 8; j++) iv[j] = sencDv.getUint8(sencPos + j);
+    sencPos += 8;
+    const subs = [];
+    if (useSubsamples) {
+      const numSubs = sencDv.getUint16(sencPos, false);
+      sencPos += 2;
+      for (let j = 0; j < numSubs; j++) {
+        subs.push({ clear: sencDv.getUint16(sencPos, false), enc: sencDv.getUint32(sencPos + 2, false) });
+        sencPos += 6;
       }
-
-      player = new shaka.Player(video);
-      player.addEventListener('error', onPlayerErrorEvent);
-
-      player.getNetworkingEngine().registerRequestFilter((type, request) => {
-        delete request.headers['Referer'];
-        delete request.headers['referer'];
-      });
-
-      player.configure({
-        drm: {
-          clearKeys: {
-            [channel.kid]: channel.key
-          }
-        },
-        streaming: {
-          bufferingGoal: 6,
-          rebufferingGoal: 2,
-          retryParameters: {
-            maxAttempts: 3,
-            baseDelay: 500,
-            backoffFactor: 1.5,
-            timeout: 8000
-          }
+    }
+    samples.push({ iv, subsamples: subs });
+  }
+  const mdat = findBox(data, "mdat", 0, data.length);
+  if (!mdat) return data;
+  const trun = findBox(data, "trun", traf[0] + 8, traf[0] + traf[1]);
+  if (!trun) return data;
+  const trunDv = new DataView(data.buffer, data.byteOffset + trun[0], trun[1]);
+  const trunFlags = trunDv.getUint32(8, false) & 0xFFFFFF;
+  const trunSampleCount = trunDv.getUint32(12, false);
+  let trunPos = 16;
+  let dataOffset = mdat[0] + 8;
+  if (trunFlags & 0x01) { dataOffset = moof[0] + trunDv.getInt32(trunPos, false); trunPos += 4; }
+  if (trunFlags & 0x04) trunPos += 4;
+  const tfhd = findBox(data, "tfhd", traf[0] + 8, traf[0] + traf[1]);
+  let defaultSampleSize = 0;
+  if (tfhd) {
+    const tfhdDv = new DataView(data.buffer, data.byteOffset + tfhd[0], tfhd[1]);
+    const tfhdFlags = tfhdDv.getUint32(8, false) & 0xFFFFFF;
+    let tp = 16;
+    if (tfhdFlags & 0x01) tp += 8;
+    if (tfhdFlags & 0x02) tp += 4;
+    if (tfhdFlags & 0x08) tp += 4;
+    if (tfhdFlags & 0x10) defaultSampleSize = tfhdDv.getUint32(tp, false);
+  }
+  const sampleSizes = [];
+  for (let i = 0; i < trunSampleCount; i++) {
+    let ss = defaultSampleSize;
+    if (trunFlags & 0x100) trunPos += 4;
+    if (trunFlags & 0x200) { ss = trunDv.getUint32(trunPos, false); trunPos += 4; }
+    if (trunFlags & 0x400) trunPos += 4;
+    if (trunFlags & 0x800) trunPos += 4;
+    sampleSizes.push(ss);
+  }
+  let sampleOffset = dataOffset;
+  const maxS = Math.min(sampleSizes.length, samples.length);
+  for (let i = 0; i < maxS; i++) {
+    const sample = samples[i];
+    const sampleSize = sampleSizes[i];
+    if (sample.subsamples.length > 0) {
+      let pos = sampleOffset;
+      for (const sub of sample.subsamples) {
+        pos += sub.clear;
+        if (sub.enc > 0 && pos + sub.enc <= data.length) {
+          try {
+            const dec = await crypto.subtle.decrypt({ name: "AES-CTR", counter: sample.iv, length: 128 }, cryptoKey, data.subarray(pos, pos + sub.enc));
+            data.set(new Uint8Array(dec), pos);
+          } catch(e) { console.warn("[iOS] decrypt sub fail", e); }
+          incrementCounter(sample.iv, sub.enc);
         }
-      });
-
-      await loadStream();
-    }
-
-    async function loadStream() {
-      isLoaded = false;
-      document.getElementById('loading-label').textContent = 'Connecting to PBB Live Feed...';
-      loadingOverlay.style.display = 'flex';
-      errorOverlay.style.display = 'none';
-
+        pos += sub.enc;
+      }
+    } else if (sampleSize > 0 && sampleOffset + sampleSize <= data.length) {
       try {
-        await player.load(channel.dash);
-        video.muted = true;
-        await video.play().catch(() => {
-          video.muted = true;
-          return video.play();
-        });
-      } catch (err) {
-        console.warn("Direct DASH load failed, trying proxy stream...", err);
+        const dec = await crypto.subtle.decrypt({ name: "AES-CTR", counter: sample.iv, length: 128 }, cryptoKey, data.subarray(sampleOffset, sampleOffset + sampleSize));
+        data.set(new Uint8Array(dec), sampleOffset);
+      } catch(e) { console.warn("[iOS] decrypt full fail", e); }
+    }
+    sampleOffset += sampleSize;
+  }
+  return data;
+}
+
+function cleanSegment(input) {
+  const parts = [];
+  const dv = new DataView(input.buffer, input.byteOffset, input.byteLength);
+  let pos = 0, moofIdx = -1, mdatIdx = -1;
+  while (pos + 8 <= input.length) {
+    let size = readU32(dv, pos);
+    const type = readStr(dv, pos + 4, 4);
+    if (size === 0) size = input.length - pos;
+    if (size < 8) break;
+    if (type === "styp" || type === "sidx") { pos += size; continue; }
+    if (type === "moof") { moofIdx = parts.length; parts.push(rebuildWithoutBoxes(input.subarray(pos, pos + size), ["senc","pssh","saiz","saio","sbgp","sgpd"])); pos += size; continue; }
+    if (type === "mdat") mdatIdx = parts.length;
+    parts.push(input.subarray(pos, pos + size));
+    pos += size;
+  }
+  if (moofIdx >= 0 && mdatIdx >= 0) {
+    const moofData = parts[moofIdx];
+    const traf = findBox(moofData, "traf", 8, moofData.length);
+    if (traf) {
+      const trun = findBox(moofData, "trun", traf[0] + 8, traf[0] + traf[1]);
+      if (trun) {
+        const td = new DataView(moofData.buffer, moofData.byteOffset + trun[0], trun[1]);
+        if (td.getUint32(8, false) & 0x01) td.setInt32(16, moofData.length + 8, false);
+      }
+    }
+  }
+  const total = parts.reduce((s, p) => s + p.length, 0);
+  const out = new Uint8Array(total);
+  let off = 0;
+  for (const p of parts) { out.set(p, off); off += p.length; }
+  return out;
+}
+
+// ═══════════════════════════════════════════════════
+// MPD Parser
+// ═══════════════════════════════════════════════════
+
+function parseMpd(xmlText, baseUrl) {
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(xmlText, "text/xml");
+  const videoTiers = [], audioArr = [];
+  for (const as of doc.querySelectorAll("AdaptationSet")) {
+    const mime = as.getAttribute("mimeType") || "";
+    const ct = as.getAttribute("contentType") || "";
+    const isV = mime.includes("video") || ct === "video";
+    const isA = mime.includes("audio") || ct === "audio";
+    const st = as.querySelector("SegmentTemplate");
+    if (!st) continue;
+    const initA = st.getAttribute("initialization") || "";
+    const mediaA = st.getAttribute("media") || "";
+    const startNum = parseInt(st.getAttribute("startNumber") || "1", 10);
+    const ts = parseInt(st.getAttribute("timescale") || "1", 10);
+    const dur = parseInt(st.getAttribute("duration") || "0", 10);
+    if (isV) {
+      for (const rep of as.querySelectorAll("Representation")) {
+        const bw = parseInt(rep.getAttribute("bandwidth") || "0", 10);
+        const w = parseInt(rep.getAttribute("width") || "0", 10);
+        const h = parseInt(rep.getAttribute("height") || "0", 10);
+        const rid = rep.getAttribute("id") || "";
+        const codec = rep.getAttribute("codecs") || as.getAttribute("codecs") || "avc1.4d401f";
+        const rst = rep.querySelector("SegmentTemplate");
+        const ei = (rst?.getAttribute("initialization") || initA).replace("$RepresentationID$", rid).replace("$Bandwidth$", String(bw));
+        const em = (rst?.getAttribute("media") || mediaA).replace("$RepresentationID$", rid).replace("$Bandwidth$", String(bw));
+        videoTiers.push({ bandwidth: bw, width: w, height: h, initUrl: ei, mediaTemplate: em, startNumber: startNum, timescale: parseInt(rst?.getAttribute("timescale") || String(ts), 10), duration: parseInt(rst?.getAttribute("duration") || String(dur), 10), codec });
+      }
+    } else if (isA) {
+      const rep = as.querySelector("Representation");
+      const rid = rep?.getAttribute("id") || "";
+      const codec = rep?.getAttribute("codecs") || as.getAttribute("codecs") || "mp4a.40.2";
+      const rst = rep?.querySelector("SegmentTemplate");
+      audioArr.push({ initUrl: (rst?.getAttribute("initialization") || initA).replace("$RepresentationID$", rid), mediaTemplate: (rst?.getAttribute("media") || mediaA).replace("$RepresentationID$", rid), startNumber: startNum, timescale: ts, duration: dur, codec });
+    }
+  }
+  videoTiers.sort((a, b) => a.bandwidth - b.bandwidth);
+  const mpdEl = doc.querySelector("MPD");
+  const astStr = mpdEl ? mpdEl.getAttribute("availabilityStartTime") : null;
+  const astDate = astStr ? new Date(astStr) : null;
+  let segDurSec = 4.004;
+  if (videoTiers.length > 0) {
+    const t = videoTiers[0];
+    if (t.timescale > 0 && t.duration > 0) segDurSec = t.duration / t.timescale;
+  }
+  return { videoTiers, audio: audioArr[0] || null, baseUrl, astDate, segDurSec };
+}
+
+function resolveUrl(base, relative) {
+  if (relative.startsWith("http")) return relative;
+  return base.substring(0, base.lastIndexOf("/") + 1) + relative;
+}
+
+function getSegmentUrl(template, number) {
+  return template.replace("$Number$", String(number)).replace(/\$Number%(\d+)d\$/, (_, w) => String(number).padStart(parseInt(w), "0"));
+}
+
+function hexToBytes(hex) {
+  const h = hex.replace(/-/g, "");
+  const b = new Uint8Array(h.length / 2);
+  for (let i = 0; i < h.length; i += 2) b[i / 2] = parseInt(h.substring(i, i + 2), 16);
+  return b;
+}
+
+// ═══════════════════════════════════════════════════
+// iOS Manual CENC Player
+// ═══════════════════════════════════════════════════
+
+async function startIOSPlayer() {
+  setStatus("Connecting (iOS)...");
+  errorEl.style.display = "none";
+
+  const state = { destroyed: false, ms: null, videoSb: null, audioSb: null, videoPoller: null, audioPoller: null, videoSegNum: 0, audioSegNum: 0, cryptoKey: null };
+  iosState = state;
+
+  try {
+    const keyBytes = hexToBytes(ch.key);
+    state.cryptoKey = await crypto.subtle.importKey("raw", keyBytes, { name: "AES-CTR" }, false, ["decrypt"]);
+
+    const mpdUrl = ch.dash;
+    await ensureBridge();
+    const mpdMsg = await bridgeFetch(mpdUrl);
+    if (!mpdMsg.ok) throw new Error("MPD fetch failed: " + mpdMsg.status);
+    const mpdText = new TextDecoder().decode(mpdMsg.data);
+    const mpd = parseMpd(mpdText, mpdUrl);
+    if (!mpd.videoTiers.length) throw new Error("No video tiers");
+
+    let tierIdx = 0;
+    if (!lowBandwidth && mpd.videoTiers.length > 1) {
+      tierIdx = Math.min(Math.floor(mpd.videoTiers.length * 0.7), mpd.videoTiers.length - 1);
+    }
+    const tier = mpd.videoTiers[tierIdx];
+    setStatus(tier.width + "x" + tier.height);
+
+    const ms = new MSE();
+    state.ms = ms;
+    if ("ManagedMediaSource" in window) {
+      video.disableRemotePlayback = true;
+      video.srcObject = ms;
+    } else {
+      video.src = URL.createObjectURL(ms);
+    }
+
+    await new Promise((resolve, reject) => {
+      if (ms.readyState === "open") return resolve();
+      ms.addEventListener("sourceopen", resolve, { once: true });
+      ms.addEventListener("error", () => reject(new Error("MSE error")), { once: true });
+    });
+    if (state.destroyed) return;
+
+    const vc = tier.codec.startsWith("avc") ? 'video/mp4; codecs="' + tier.codec + '"' : 'video/mp4; codecs="avc1.4d401f"';
+    state.videoSb = ms.addSourceBuffer(vc);
+    state.videoSb.mode = "segments";
+
+    let audioInfo = mpd.audio;
+    if (audioInfo) {
+      const ac = audioInfo.codec.startsWith("mp4a") ? 'audio/mp4; codecs="' + audioInfo.codec + '"' : 'audio/mp4; codecs="mp4a.40.2"';
+      try { state.audioSb = ms.addSourceBuffer(ac); state.audioSb.mode = "segments"; } catch(e) { console.warn("No audio SB", e); audioInfo = null; }
+    }
+
+    setStatus("Loading init...");
+    const viUrl = resolveUrl(mpdUrl, tier.initUrl);
+    const viMsg = await bridgeFetch(viUrl);
+    if (!viMsg.ok) throw new Error("Video init failed");
+    const viData = clearInit(new Uint8Array(viMsg.data));
+    await appendBuf(state.videoSb, viData);
+    if (state.destroyed) return;
+
+    if (audioInfo && state.audioSb) {
+      const aiUrl = resolveUrl(mpdUrl, audioInfo.initUrl);
+      const aiMsg = await bridgeFetch(aiUrl);
+      if (aiMsg.ok) { await appendBuf(state.audioSb, clearInit(new Uint8Array(aiMsg.data))); }
+    }
+    if (state.destroyed) return;
+
+    setStatus("Finding live edge...");
+    const liveEdge = await findLiveEdge(mpdUrl, tier, state, mpd.astDate, mpd.segDurSec);
+    if (state.destroyed) return;
+    state.videoSegNum = Math.max(liveEdge - 2, tier.startNumber);
+    if (audioInfo) state.audioSegNum = state.videoSegNum;
+
+    setStatus("Buffering...");
+    for (let i = 0; i < 3 && !state.destroyed; i++) {
+      await fetchAppend(state, mpdUrl, tier, "video");
+      if (audioInfo && state.audioSb) await fetchAppend(state, mpdUrl, audioInfo, "audio");
+    }
+    if (state.destroyed) return;
+
+    try { await video.play(); } catch(e) { console.warn("autoplay fail", e); }
+    setStatus("");
+    notifyParent("playerReady");
+
+    state.videoPoller = setInterval(async () => {
+      if (state.destroyed) return;
+      try {
+        await fetchAppend(state, mpdUrl, tier, "video");
+        trimBuf(state.videoSb, 25);
+      } catch(e) { console.warn("vpoll err", e); }
+    }, 2500);
+
+    if (audioInfo && state.audioSb) {
+      state.audioPoller = setInterval(async () => {
+        if (state.destroyed) return;
+        try { await fetchAppend(state, mpdUrl, audioInfo, "audio"); trimBuf(state.audioSb, 25); } catch(e) {}
+      }, 2500);
+    }
+  } catch(err) {
+    console.error("[iOS] init error:", err);
+    showError(err.message || "Stream failed");
+  }
+}
+
+function stopIOSPlayer() {
+  if (!iosState) return;
+  iosState.destroyed = true;
+  if (iosState.videoPoller) clearInterval(iosState.videoPoller);
+  if (iosState.audioPoller) clearInterval(iosState.audioPoller);
+  if (iosState.ms?.readyState === "open") try { iosState.ms.endOfStream(); } catch(e) {}
+  iosState = null;
+}
+
+function appendBuf(sb, data) {
+  if (!sb) return Promise.resolve();
+  return new Promise((res, rej) => {
+    sb.addEventListener("updateend", () => res(), { once: true });
+    sb.addEventListener("error", () => rej(new Error("SB error")), { once: true });
+    try { sb.appendBuffer(data); } catch(e) { rej(e); }
+  });
+}
+
+function trimBuf(sb, keep) {
+  if (!sb || sb.updating || !sb.buffered.length) return;
+  const end = sb.buffered.end(sb.buffered.length - 1);
+  const start = sb.buffered.start(0);
+  if (end - start > keep) try { sb.remove(start, end - keep); } catch(e) {}
+}
+
+async function fetchAppend(state, mpdUrl, info, type) {
+  if (state.destroyed) return;
+  const segNum = type === "video" ? state.videoSegNum : state.audioSegNum;
+  const sb = type === "video" ? state.videoSb : state.audioSb;
+  if (!sb || !state.cryptoKey) return;
+  const url = resolveUrl(mpdUrl, getSegmentUrl(info.mediaTemplate, segNum));
+  try {
+    const msg = await bridgeFetch(url);
+    if (!msg.ok) { if (msg.status === 404) return; throw new Error(msg.status); }
+    let seg = new Uint8Array(msg.data);
+    seg = await decryptSegment(seg, state.cryptoKey);
+    seg = cleanSegment(seg);
+    if (!sb.updating) { /* ok */ } else { await new Promise(r => { sb.addEventListener("updateend", r, { once: true }); }); }
+    if (state.destroyed) return;
+    await appendBuf(sb, seg);
+    if (type === "video") state.videoSegNum++; else state.audioSegNum++;
+  } catch(e) { if (!String(e).includes("404")) console.warn("[iOS]", type, segNum, e); }
+}
+
+async function findLiveEdge(mpdUrl, tier, state, astDate, segDurSec) {
+  if (astDate && segDurSec > 0) {
+    const elapsed = (Date.now() - astDate.getTime()) / 1000;
+    const totalSegs = Math.floor(elapsed / segDurSec);
+    let liveEdge = tier.startNumber + totalSegs;
+    console.log("[Desktop] Time-based live edge:", liveEdge, "elapsed:", elapsed.toFixed(0), "s");
+    for (let backoff = 0; backoff < 20; backoff++) {
+      try {
+        const msg = await bridgeFetch(resolveUrl(mpdUrl, getSegmentUrl(tier.mediaTemplate, liveEdge)));
+        if (msg.ok) { console.log("[Desktop] Live edge confirmed at", liveEdge); return liveEdge; }
+      } catch(e) {}
+      liveEdge -= 5;
+      if (state.destroyed) return liveEdge;
+    }
+    return liveEdge;
+  }
+  let lo = tier.startNumber, hi = lo, jump = 100;
+  while (jump <= 100000) {
+    const tn = lo + jump;
+    try { const msg = await bridgeFetch(resolveUrl(mpdUrl, getSegmentUrl(tier.mediaTemplate, tn))); if (msg.ok) { lo = tn; jump *= 4; } else { hi = tn; break; } } catch { hi = tn; break; }
+    if (state.destroyed) return lo;
+  }
+  if (hi === lo) return lo;
+  while (hi - lo > 3) {
+    const mid = (lo + hi) >> 1;
+    try { const msg = await bridgeFetch(resolveUrl(mpdUrl, getSegmentUrl(tier.mediaTemplate, mid))); if (msg.ok) lo = mid; else hi = mid; } catch { hi = mid; }
+    if (state.destroyed) return lo;
+  }
+  return lo;
+}
+
+// ═══════════════════════════════════════════════════
+// Desktop Shaka Player (Chrome/Firefox/Android)
+// ═══════════════════════════════════════════════════
+
+const CK_SYS = [0x10,0x77,0xef,0xec,0xc0,0xb2,0x4d,0x02,0xac,0xe3,0x3c,0x1e,0x52,0xe2,0xfb,0x4b];
+
+function hexToBytes16(h) {
+  const b = new Uint8Array(16);
+  for (let i = 0; i < 16; i++) b[i] = parseInt(h.slice(2*i, 2*i+2), 16);
+  return b;
+}
+
+function buildPsshB64(kidHex) {
+  const buf = new Uint8Array(52), v = new DataView(buf.buffer);
+  v.setUint32(0, 52); buf.set([112,115,115,104], 4); v.setUint32(8, 0x01000000);
+  buf.set(CK_SYS, 12); v.setUint32(28, 1); buf.set(hexToBytes16(kidHex), 32); v.setUint32(48, 0);
+  let s = ""; for (let i = 0; i < 52; i++) s += String.fromCharCode(buf[i]);
+  return btoa(s);
+}
+
+function transformMpd(xml, kidHex) {
+  let extracted = "";
+  const m = xml.match(/default_KID="([^"]+)"/i);
+  if (m) { const c = m[1].replace(/[^0-9a-fA-F]/g,"").toLowerCase(); if (c.length===32) extracted = c; }
+  const kid = extracted || kidHex;
+  const pssh = buildPsshB64(kid);
+  xml = xml.replace(/<ContentProtection\b[^>]*edef8ba9-79d6-4ace-a3c8-27dcd51d21ed[^>]*>[\s\S]*?<\/ContentProtection>/gi, "")
+           .replace(/<ContentProtection\b[^>]*edef8ba9-79d6-4ace-a3c8-27dcd51d21ed[^>]*\/>/gi, "");
+  if (pssh && !/1077efec-c0b2-4d02-ace3-3c1e52e2fb4b/i.test(xml)) {
+    const ck = '<ContentProtection schemeIdUri="urn:uuid:1077efec-c0b2-4d02-ace3-3c1e52e2fb4b"><cenc:pssh xmlns:cenc="urn:mpeg:cenc:2013">'+pssh+'</cenc:pssh></ContentProtection><ContentProtection schemeIdUri="urn:uuid:e2719d58-a985-b3c9-781a-b030af78d30e" value="ClearKey1.0"/>';
+    xml = xml.replace(/(<ContentProtection\b[^>]*mp4protection:2011[^>]*\/>)/gi, "$1" + ck);
+  }
+  return { xml, kid };
+}
+
+function fourCC(b, o) { return String.fromCharCode(b[o],b[o+1],b[o+2],b[o+3]); }
+function wCC(b, o, s) { for(let i=0;i<4;i++) b[o+i]=s.charCodeAt(i); }
+
+function patchInit(buf, kidHex) {
+  if (!buf || buf.byteLength < 64) return;
+  const kb = hexToBytes16(kidHex), v = new DataView(buf.buffer, buf.byteOffset, buf.byteLength);
+  for (let t=0; t+28<=buf.byteLength; t++) {
+    if (buf[t]===116&&buf[t+1]===101&&buf[t+2]===110&&buf[t+3]===99) buf.set(kb, t+12);
+  }
+  (function scan(s, e) {
+    let p = s;
+    while (p+8 <= e) {
+      let sz = v.getUint32(p); const fc = fourCC(buf, p+4);
+      if (!sz) sz = e-p; if (sz<8||p+sz>e) break;
+      if (fc==="pssh"&&sz>=52) {
+        v.setUint32(p, 52); wCC(buf, p+4, "pssh"); v.setUint32(p+8, 0x01000000);
+        buf.set(CK_SYS, p+12); v.setUint32(p+28, 1); buf.set(kb, p+32); v.setUint32(p+48, 0);
+        const rem=sz-52; if(rem>=8){v.setUint32(p+52,rem);wCC(buf,p+56,"free");buf.fill(0,p+60,p+sz);}
+      } else if(fc==="moov") scan(p+8, p+sz);
+      p += sz;
+    }
+  })(0, buf.byteLength);
+}
+
+let activeKid = ch.kid;
+
+async function startShakaPlayer() {
+  setStatus("Connecting...");
+  errorEl.style.display = "none";
+  if (player) { try { await player.destroy(); } catch(e){} player = null; }
+
+  // Initialize bridge before Shaka (so it's ready for first fetch)
+  await ensureBridge();
+  console.log("[Player] Bridge ready — fetching direct from Akamai");
+
+  shaka.polyfill.installAll();
+  const p = new shaka.Player();
+  await p.attach(video);
+  player = p;
+  window._shakaPlayer = p;
+
+  const baseUrl = ch.dash.substring(0, ch.dash.lastIndexOf("/") + 1);
+  const RT = shaka.net.NetworkingEngine.RequestType;
+
+  p.getNetworkingEngine().registerResponseFilter((type, resp) => {
+    if (type === RT.MANIFEST) {
+      try {
+        const text = new TextDecoder().decode(resp.data);
+        let xml = text;
+        if (/<BaseURL>[\s\S]*?<\/BaseURL>/i.test(xml)) {
+          xml = xml.replace(/<BaseURL>[\s\S]*?<\/BaseURL>/gi, "<BaseURL>" + baseUrl + "</BaseURL>");
+        } else {
+          xml = xml.replace(/(<MPD\b[^>]*>)/i, "$1\n  <BaseURL>" + baseUrl + "</BaseURL>");
+        }
+        const r = transformMpd(xml, activeKid);
+        if (r.kid) {
+          activeKid = r.kid;
+          const ck = {}; ck[r.kid] = ch.key; ck[ch.kid] = ch.key;
+          p.configure({ drm: { preferredKeySystems: ["org.w3.clearkey"], clearKeys: ck } });
+        }
+        resp.data = new TextEncoder().encode(r.xml).buffer;
+      } catch(e) { console.warn("Manifest filter err", e); }
+    }
+    if (type === RT.SEGMENT) {
+      const uri = String(resp.uri || resp.originalUri || "");
+      if (uri.includes("_init.mp4")) {
         try {
-          const proxyUrl = '/api/tv/proxy?url=' + encodeURIComponent(channel.dash);
-          await player.load(proxyUrl);
-          video.muted = true;
-          await video.play().catch(() => {
-            video.muted = true;
-            return video.play();
-          });
-        } catch (proxyErr) {
-          console.error("Proxied load failed as well:", proxyErr);
-          showError("Unable to establish connection to Kuya's live camera feed.");
+          const raw = resp.data;
+          const buf = ArrayBuffer.isView(raw) ? new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength) : new Uint8Array(raw instanceof ArrayBuffer ? raw : new ArrayBuffer(0));
+          patchInit(buf, activeKid);
+          resp.data = buf.byteOffset===0 && buf.byteLength===buf.buffer.byteLength ? buf.buffer : buf.slice().buffer;
+        } catch(e) { console.warn("Segment filter err", e); }
+      }
+    }
+  });
+
+  // Register networking plugin: use sandbox bridge for all Akamai requests (no-referrer)
+  const net = p.getNetworkingEngine();
+  net.registerRequestFilter((type, request) => {
+    // Tag Akamai requests so we know to use bridge
+    const uri = request.uris[0] || "";
+    if (uri.includes("akamaized.net")) {
+      request._useBridge = true;
+    }
+  });
+
+  // Override the default HTTP plugin with bridge-aware fetch
+  shaka.net.NetworkingEngine.registerScheme("https", (uri, request, requestType, progressUpdated, headersReceived) => {
+    const abort = new shaka.util.AbortableOperation.notAbortable();
+    if (!request._useBridge && !String(uri).includes("akamaized.net")) {
+      // Normal fetch for non-Akamai
+      return shaka.net.HttpFetchPlugin.parse(uri, request, requestType, progressUpdated, headersReceived);
+    }
+    // Use bridge for Akamai
+    const promise = bridgeFetch(String(uri), 15000).then(msg => {
+      if (!msg.ok) throw new Error("Bridge fetch failed: " + (msg.error || msg.status));
+      const resp = {
+        uri: String(uri),
+        originalUri: String(uri),
+        data: msg.data,
+        headers: {},
+        status: msg.status,
+        timeMs: 0,
+        fromCache: false,
+      };
+      return resp;
+    });
+    return new shaka.util.AbortableOperation(promise, () => Promise.resolve());
+  });
+
+  p.configure({
+    streaming: { bufferingGoal: 30, rebufferingGoal: 3, bufferBehind: 20, segmentPrefetchLimit: 2,
+      retryParameters: { maxAttempts: 6, baseDelay: 300, timeout: 15000 } },
+    manifest: { dash: {}, retryParameters: { maxAttempts: 5, baseDelay: 400 } },
+    abr: { enabled: true, defaultBandwidthEstimate: lowBandwidth ? 1000000 : 10000000, useNetworkInformation: false, restrictions: { maxHeight: lowBandwidth ? 480 : 1080 } },
+  });
+
+  const initialCK = {}; initialCK[ch.kid] = ch.key;
+  p.configure({ drm: { preferredKeySystems: ['org.w3.clearkey'], clearKeys: initialCK } });
+
+  p.addEventListener("error", (e) => {
+    const code = e?.detail?.code;
+    console.warn("Shaka error", code, e?.detail);
+    if (video.readyState < 2 || video.paused) showError(code);
+  });
+
+  try {
+    await p.load(ch.dash);
+    // Force select highest quality track immediately (no ABR ramp-up)
+    if (!lowBandwidth) {
+      try {
+        const tracks = p.getVariantTracks();
+        const best = tracks.reduce((a, b) => (b.height > a.height || (b.height === a.height && b.bandwidth > a.bandwidth)) ? b : a, tracks[0]);
+        if (best) { p.configure({ abr: { enabled: false } }); p.selectVariantTrack(best, true); }
+        console.log("[Player] Forced quality:", best?.height + "p @" + best?.bandwidth);
+      } catch(e) { console.warn("Force quality failed", e); }
+    }
+    video.muted = true;
+    try {
+      await video.play();
+    } catch(playErr) {
+      // AbortError = browser power saving paused background video — NOT a real error
+      console.warn("[Player] play() interrupted:", playErr.name, playErr.message);
+      if (playErr.name === "AbortError" || playErr.name === "NotAllowedError") {
+        // Still mark as ready — stream IS loaded, just not playing yet
+        console.log("[Player] Stream loaded but play paused by browser. Will auto-resume on visibility.");
+      } else {
+        throw playErr; // rethrow real errors
+      }
+    }
+    setStatus("");
+    notifyParent("playerReady");
+  } catch(e) {
+    console.warn("Load failed", e);
+    showError(e?.code || e?.detail?.code || "");
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// Entry point — pick strategy
+// ═══════════════════════════════════════════════════
+
+async function startPlayer() {
+  stopIOSPlayer();
+  if (player) { try { await player.destroy(); } catch(e){} player = null; }
+  errorEl.style.display = "none";
+  setStatus("");
+
+  console.log("[Player] isSafari=" + isSafari + " isIOS=" + isIOS + " canMSE=" + canMSE + " needManualDecrypt=" + needManualDecrypt);
+
+  if (needManualDecrypt) {
+    console.log("[Player] Using iOS manual CENC decryption");
+    await startIOSPlayer();
+  } else if (typeof shaka !== "undefined") {
+    console.log("[Player] Using Shaka Player");
+    await startShakaPlayer();
+  } else {
+    showError("No player available");
+  }
+}
+
+function showError(code) {
+  document.getElementById("errMsg").textContent = code ? "Signal Interrupted (" + code + ")" : "Signal Interrupted";
+  errorEl.style.display = "flex";
+  setStatus("");
+}
+function retry() { startPlayer(); }
+
+// Auto-resume play when tab/iframe becomes visible (fixes Chrome power saving)
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "visible" && video.paused && !video.ended) {
+    video.play().catch(() => {});
+  }
+});
+
+// Periodic play retry for iframes that may start hidden
+let playRetryCount = 0;
+const playRetryInterval = setInterval(() => {
+  if (video.paused && !video.ended && video.readyState >= 2) {
+    video.play().then(() => {
+      console.log("[Player] Auto-resume succeeded");
+      clearInterval(playRetryInterval);
+      setStatus("");
+      errorEl.style.display = "none";
+      notifyParent("playerReady");
+    }).catch(() => {});
+  }
+  if (++playRetryCount > 30) clearInterval(playRetryInterval); // stop after 30s
+}, 1000);
+
+function notifyParent(type, data) {
+  if (window.parent !== window) {
+    window.parent.postMessage(Object.assign({ type, channel: chId }, data || {}), "*");
+  }
+}
+
+// ═══════════════════════════════════════════════════
+// PostMessage API for parent (pbbcollab.com)
+// ═══════════════════════════════════════════════════
+window.addEventListener("message", (e) => {
+  if (!e.data) return;
+  const { type, value } = e.data;
+  if (type === "mute")   video.muted = true;
+  if (type === "unmute") video.muted = false;
+  if (type === "volume" && typeof value === "number") { video.volume = value; video.muted = false; }
+  if (type === "play")   video.play().catch(()=>{});
+  if (type === "pause")  video.pause();
+  if (type === "quality" && window._shakaPlayer) {
+    if (value === "auto") {
+      window._shakaPlayer.configure({ abr: { enabled: true } });
+    } else {
+      const tracks = window._shakaPlayer.getVariantTracks();
+      const sel = tracks.find(t => String(t.id) === String(value));
+      if (sel) { window._shakaPlayer.configure({ abr: { enabled: false } }); window._shakaPlayer.selectVariantTrack(sel, true); }
+    }
+  }
+  if (type === "boost" && typeof value === "number") {
+    if (!window._audioCtx) {
+      try {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (AC) {
+          const ctx = new AC();
+          const cs = video.captureStream ? video.captureStream() : (video.mozCaptureStream ? video.mozCaptureStream() : null);
+          let src;
+          if (cs) src = ctx.createMediaStreamSource(cs);
+          else src = ctx.createMediaElementSource(video);
+          const gain = ctx.createGain();
+          src.connect(gain); gain.connect(ctx.destination);
+          window._audioCtx = ctx; window._gainNode = gain;
+        }
+      } catch(err) { console.warn("boost init error", err); }
+    }
+    if (window._audioCtx?.state === "suspended") window._audioCtx.resume();
+    if (window._gainNode) window._gainNode.gain.value = value;
+  }
+  if (type === "channel" && CHANNELS[value]) {
+    window.location.search = "?ch=" + value + (lowBandwidth ? "&quality=low" : "");
+  }
+  if (type === "getStatus") {
+    notifyParent("status", { playing: !video.paused, muted: video.muted, volume: video.volume, readyState: video.readyState, mode: needManualDecrypt ? "ios" : "shaka" });
+  }
+});
+
+// Start
+startPlayer();
+
+  </script>
+
+  <script>
+    // ═══════════════════════════════════════════════════
+    // Watch2Gether UI & Lifecycle Controller
+    // ═══════════════════════════════════════════════════
+    (function() {
+      const v = document.getElementById('v');
+      const loadingOverlay = document.getElementById('loading-overlay');
+      const bufferingBadge = document.getElementById('buffering-badge');
+      const errorOverlay = document.getElementById('error-overlay');
+      const unmuteBtn = document.getElementById('unmute-btn');
+      const muteToggle = document.getElementById('mute-toggle');
+      const channelName = document.getElementById('channel-name');
+
+      // Populate channel name
+      const curCh = (typeof ch !== 'undefined' && ch && ch.name) ? ch.name : (chId ? ('Cam ' + chId.toUpperCase()) : 'PBB Live');
+      if (channelName) channelName.textContent = curCh;
+
+      let isOverlayHidden = false;
+
+      function hideLoading() {
+        if (isOverlayHidden) return;
+        isOverlayHidden = true;
+        if (loadingOverlay) {
+          loadingOverlay.style.opacity = '0';
+          setTimeout(() => {
+            loadingOverlay.style.display = 'none';
+          }, 250);
+        }
+        if (errorOverlay) {
+          errorOverlay.style.display = 'none';
+        }
+        updateAudioUI();
+      }
+
+      function showLoading(msg) {
+        isOverlayHidden = false;
+        if (loadingOverlay) {
+          if (msg) {
+            const lbl = document.getElementById('loading-label');
+            if (lbl) lbl.textContent = msg;
+          }
+          loadingOverlay.style.display = 'flex';
+          loadingOverlay.style.opacity = '1';
+        }
+        if (errorOverlay) {
+          errorOverlay.style.display = 'none';
         }
       }
-    }
 
-    function onPlayerErrorEvent(event) {
-      console.error('Shaka Error:', event.detail);
-      showError("Stream error: " + (event.detail.message || "Decryption or network error"));
-    }
-
-    function showError(msg) {
-      loadingOverlay.style.display = 'none';
-      errorOverlay.style.display = 'flex';
-      errorDesc.textContent = msg;
-    }
-
-    function retryStream(e) {
-      if (e) e.stopPropagation();
-      errorOverlay.style.display = 'none';
-      loadStream();
-    }
-
-    function toggleMute(e) {
-      if (e) e.stopPropagation();
-      video.muted = !video.muted;
-      unmuteBtn.style.display = video.muted ? 'flex' : 'none';
-      muteToggle.textContent = video.muted ? '🔇' : '🔊';
-      if (!video.muted && video.paused) {
-        video.play().catch(() => {});
+      function updateAudioUI() {
+        if (v.muted) {
+          if (unmuteBtn) unmuteBtn.style.display = 'flex';
+          if (muteToggle) muteToggle.textContent = '🔇';
+        } else {
+          if (unmuteBtn) unmuteBtn.style.display = 'none';
+          if (muteToggle) muteToggle.textContent = '🔊';
+        }
       }
-    }
 
-    function togglePip(e) {
-      if (e) e.stopPropagation();
-      if (document.pictureInPictureElement) {
-        document.exitPictureInPicture().catch(() => {});
-      } else if (video.requestPictureInPicture) {
-        video.requestPictureInPicture().catch(() => {});
+      // Hide loading on playback events
+      v.addEventListener('playing', hideLoading);
+      v.addEventListener('loadeddata', hideLoading);
+      v.addEventListener('canplay', () => {
+        if (!v.paused) hideLoading();
+      });
+      v.addEventListener('timeupdate', () => {
+        if (v.currentTime > 0) hideLoading();
+      });
+
+      // Visual rendering detector: dismiss overlay as soon as pixels render
+      const frameCheckInterval = setInterval(() => {
+        if (v.videoWidth > 0 && !v.paused) {
+          hideLoading();
+          clearInterval(frameCheckInterval);
+        }
+      }, 200);
+      setTimeout(() => clearInterval(frameCheckInterval), 20000);
+
+      // Non-blocking buffering detection (badge only, never blocks screen)
+      let bufferTimer = null;
+      v.addEventListener('waiting', () => {
+        if (isOverlayHidden && !bufferTimer) {
+          bufferTimer = setTimeout(() => {
+            if (v.paused || v.readyState < 3) {
+              if (bufferingBadge) bufferingBadge.style.display = 'flex';
+            }
+          }, 1500);
+        }
+      });
+
+      function clearBufferIndicator() {
+        if (bufferTimer) {
+          clearTimeout(bufferTimer);
+          bufferTimer = null;
+        }
+        if (bufferingBadge) bufferingBadge.style.display = 'none';
       }
-    }
 
-    function toggleFullscreen(e) {
-      if (e) e.stopPropagation();
-      const container = document.getElementById('player-container');
-      if (!document.fullscreenElement) {
-        container.requestFullscreen().catch(() => {});
-      } else {
-        document.exitFullscreen().catch(() => {});
-      }
-    }
+      v.addEventListener('playing', clearBufferIndicator);
+      v.addEventListener('timeupdate', clearBufferIndicator);
 
-    // Click anywhere on player to play or toggle audio
-    document.getElementById('player-container').addEventListener('click', (e) => {
-      if (e.target.closest('button')) return;
-      if (video.paused) {
-        video.play().catch(() => {});
-      } else if (video.muted) {
-        toggleMute();
-      }
-    });
+      // Controls
+      window.toggleMute = function(e) {
+        if (e) e.stopPropagation();
+        v.muted = !v.muted;
+        updateAudioUI();
+        if (!v.muted && v.paused) {
+          v.play().catch(() => {});
+        }
+      };
 
-    window.addEventListener('message', (event) => {
-      const data = event.data;
-      if (!data || typeof data !== 'object') return;
-      if (data.type === 'mute') {
-        video.muted = true;
-        unmuteBtn.style.display = 'flex';
-        muteToggle.textContent = '🔇';
-      } else if (data.type === 'unmute') {
-        video.muted = false;
-        unmuteBtn.style.display = 'none';
-        muteToggle.textContent = '🔊';
-        if (video.paused) video.play().catch(() => {});
-      } else if (data.type === 'volume' && typeof data.value === 'number') {
-        video.volume = Math.max(0, Math.min(1, data.value));
-      } else if (data.type === 'play') {
-        video.play().catch(() => {});
-      }
-    });
+      window.togglePip = function(e) {
+        if (e) e.stopPropagation();
+        if (document.pictureInPictureElement) {
+          document.exitPictureInPicture().catch(() => {});
+        } else if (v.requestPictureInPicture) {
+          v.requestPictureInPicture().catch(() => {});
+        }
+      };
 
-    document.addEventListener('DOMContentLoaded', initApp);
+      window.toggleFullscreen = function(e) {
+        if (e) e.stopPropagation();
+        const container = document.getElementById('player-container');
+        if (!document.fullscreenElement) {
+          container.requestFullscreen().catch(() => {});
+        } else {
+          document.exitFullscreen().catch(() => {});
+        }
+      };
+
+      window.retryStream = function(e) {
+        if (e) e.stopPropagation();
+        if (errorOverlay) errorOverlay.style.display = 'none';
+        showLoading('Reconnecting to Kuya\'s live feed...');
+        if (typeof startPlayer === 'function') {
+          startPlayer();
+        }
+      };
+
+      // Wire engine's showError to our overlay
+      const origShowError = window.showError;
+      window.showError = function(code) {
+        if (typeof origShowError === 'function') {
+          try { origShowError(code); } catch(e){}
+        }
+        if (loadingOverlay) loadingOverlay.style.display = 'none';
+        if (errorOverlay) {
+          errorOverlay.style.display = 'flex';
+          const desc = document.getElementById('error-desc');
+          if (desc) {
+            desc.textContent = code ? ('Camera broadcast temporarily offline or signal interrupted (' + code + '). Click Reconnect to retry.') : 'Camera broadcast temporarily offline. Click Reconnect to retry.';
+          }
+        }
+      };
+
+      // Click anywhere to play/unmute
+      document.getElementById('player-container').addEventListener('click', (e) => {
+        if (e.target.closest('button')) return;
+        if (v.paused) {
+          v.play().catch(() => {});
+        } else if (v.muted) {
+          window.toggleMute();
+        }
+      });
+    })();
   </script>
 </body>
 </html>
