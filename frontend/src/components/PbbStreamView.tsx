@@ -256,6 +256,7 @@ export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether })
               <div className="pbb-player-wrapper">
                 {activeFeed.type === 'youtube' || activeFeed.type === 'embed' ? (
                   <iframe
+                    key={activeFeed.id}
                     src={
                       activeFeed.type === 'youtube'
                         ? (activeFeed.url.includes('?') ? `${activeFeed.url}&autoplay=1` : `${activeFeed.url}?autoplay=1`)
@@ -296,6 +297,7 @@ export const PbbStreamView: React.FC<PbbStreamViewProps> = ({ onWatchTogether })
                     <div className="pbb-player-wrapper">
                       {isIframe ? (
                         <iframe
+                          key={cam.id}
                           src={
                             cam.type === 'youtube'
                               ? (cam.url.includes('?') ? `${cam.url}&autoplay=1&mute=1` : `${cam.url}?autoplay=1&mute=1`)

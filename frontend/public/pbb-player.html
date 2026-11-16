@@ -36,38 +36,39 @@
     #loading-overlay {
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.75);
+      background: rgba(0, 0, 0, 0.85);
       display: flex;
       flex-direction: column;
       align-items: center;
       justify-content: center;
       z-index: 10;
-      transition: opacity 0.3s ease;
+      transition: opacity 0.25s ease;
       pointer-events: none;
     }
     .spinner {
-      width: 44px;
-      height: 44px;
-      border: 3.5px solid rgba(255, 255, 255, 0.15);
+      width: 48px;
+      height: 48px;
+      border: 4px solid rgba(255, 255, 255, 0.12);
       border-top-color: #ef4444;
       border-radius: 50%;
-      animation: spin 0.8s linear infinite;
+      animation: spin 0.75s linear infinite;
     }
     @keyframes spin {
       to { transform: rotate(360deg); }
     }
     .loading-text {
-      margin-top: 14px;
+      margin-top: 16px;
       font-size: 13px;
-      color: #cbd5e1;
-      font-weight: 500;
+      color: #e2e8f0;
+      font-weight: 600;
+      letter-spacing: 0.02em;
     }
     /* Error / Retry overlay */
     #error-overlay {
       display: none;
       position: absolute;
       inset: 0;
-      background: rgba(0, 0, 0, 0.88);
+      background: rgba(0, 0, 0, 0.9);
       flex-direction: column;
       align-items: center;
       justify-content: center;
@@ -273,31 +274,60 @@
     const muteToggle = document.getElementById('mute-toggle');
 
     let player = null;
+    let isPlaying = false;
 
-    // Start muted by default to guarantee autoplay without browser policy blocks
+    // Start muted by default to guarantee instant autoplay without browser blocks
     video.muted = true;
 
-    function hideLoading() {
-      loadingOverlay.style.display = 'none';
-      errorOverlay.style.display = 'none';
-      if (video.muted) {
-        unmuteBtn.style.display = 'flex';
-        muteToggle.textContent = '🔇';
-      } else {
-        unmuteBtn.style.display = 'none';
-        muteToggle.textContent = '🔊';
-      }
-      try {
-        window.parent.postMessage({ type: 'playerReady', channel: chParam }, '*');
-      } catch(e) {}
+    function showLoading(msg) {
+      if (msg) document.getElementById('loading-label').textContent = msg;
+      loadingOverlay.style.display = 'flex';
+      loadingOverlay.style.opacity = '1';
     }
 
-    video.addEventListener('playing', hideLoading);
+    function hideLoading() {
+      // Only hide when video is genuinely playing and advancing frames
+      if (video.readyState >= 3 && video.currentTime > 0.05 && !video.paused) {
+        isPlaying = true;
+        loadingOverlay.style.opacity = '0';
+        setTimeout(() => {
+          if (video.readyState >= 3 && !video.paused) {
+            loadingOverlay.style.display = 'none';
+          }
+        }, 200);
+
+        if (video.muted) {
+          unmuteBtn.style.display = 'flex';
+          muteToggle.textContent = '🔇';
+        } else {
+          unmuteBtn.style.display = 'none';
+          muteToggle.textContent = '🔊';
+        }
+        try {
+          window.parent.postMessage({ type: 'playerReady', channel: chParam }, '*');
+        } catch(e) {}
+      }
+    }
+
     video.addEventListener('timeupdate', () => {
-      if (video.currentTime > 0) hideLoading();
+      if (video.currentTime > 0.05 && video.readyState >= 3 && !video.paused) {
+        hideLoading();
+      }
     });
-    video.addEventListener('loadeddata', hideLoading);
-    video.addEventListener('canplay', hideLoading);
+
+    video.addEventListener('playing', () => {
+      if (video.currentTime > 0.05 && video.readyState >= 3) {
+        hideLoading();
+      }
+    });
+
+    video.addEventListener('waiting', () => {
+      showLoading('Buffering live feed...');
+    });
+
+    video.addEventListener('stalled', () => {
+      showLoading('Buffering live feed...');
+    });
 
     async function initApp() {
       shaka.polyfill.installAll();
@@ -311,8 +341,7 @@
 
       player.addEventListener('buffering', (event) => {
         if (event.buffering) {
-          loadingOverlay.style.display = 'flex';
-          document.getElementById('loading-label').textContent = 'Buffering live feed...';
+          showLoading('Buffering live feed...');
         } else {
           hideLoading();
         }
@@ -323,6 +352,9 @@
         delete request.headers['referer'];
       });
 
+      // Rock-solid streaming config:
+      // safeSeekOffset: 5 starts safely in cached Akamai window, avoiding in-progress live segment race conditions
+      // stallEnabled + smallGapLimit automatically jumps over any timestamp gap
       player.configure({
         drm: {
           clearKeys: {
@@ -330,16 +362,28 @@
           }
         },
         streaming: {
-          bufferingGoal: 6,
+          bufferingGoal: 8,
           rebufferingGoal: 2,
-          lowLatencyMode: true,
-          inaccurateManifestTolerance: 0,
+          bufferBehind: 15,
+          safeSeekOffset: 5,
+          startAtSegmentBoundary: true,
+          stallEnabled: true,
+          stallThreshold: 1,
+          stallSkip: 0.5,
+          smallGapLimit: 1.5,
+          jumpLargeGaps: true,
           retryParameters: {
-            maxAttempts: 4,
-            baseDelay: 1000,
-            backoffFactor: 2,
-            fuzzFactor: 0.5,
+            maxAttempts: 5,
+            baseDelay: 500,
+            backoffFactor: 1.5,
+            fuzzFactor: 0.3,
             timeout: 10000
+          }
+        },
+        manifest: {
+          dash: {
+            autoCorrectDrift: true,
+            ignoreMinBufferTime: true
           }
         }
       });
@@ -349,43 +393,86 @@
         if (player && player.isLive()) {
           const seekRange = player.seekRange();
           if (seekRange && seekRange.end) {
-            video.currentTime = seekRange.end;
+            video.currentTime = Math.max(seekRange.start, seekRange.end - 5);
           }
         }
       });
 
       await loadStream();
+      startWatchdog();
     }
 
     async function loadStream() {
-      loadingOverlay.style.display = 'flex';
+      showLoading("Connecting to PBB Live Feed...");
       errorOverlay.style.display = 'none';
 
       try {
         await player.load(channel.dash);
-        hideLoading();
+        video.muted = true;
         await video.play().catch((err) => {
-          console.warn("Autoplay with audio blocked, ensuring muted playback...", err);
+          console.warn("Autoplay blocked, ensuring muted playback...", err);
           video.muted = true;
           return video.play();
         });
-        hideLoading();
       } catch (err) {
         console.warn("Direct DASH load failed, trying proxy stream...", err);
         try {
           const proxyUrl = '/api/tv/proxy?url=' + encodeURIComponent(channel.dash);
           await player.load(proxyUrl);
-          hideLoading();
+          video.muted = true;
           await video.play().catch(() => {
             video.muted = true;
             return video.play();
           });
-          hideLoading();
         } catch (proxyErr) {
           console.error("Proxied load failed as well:", proxyErr);
           showError("Unable to establish connection to Kuya's live camera feed. (Error: " + (err.message || err.code || 'Playback error') + ")");
         }
       }
+    }
+
+    // Active playback watchdog: monitors video progression every second.
+    // If video is stuck on black or in gap, automatically unstalls by nudging currentTime or restarting.
+    function startWatchdog() {
+      let lastCurrentTime = 0;
+      let lastProgressTime = Date.now();
+
+      setInterval(() => {
+        if (!player) return;
+
+        const now = Date.now();
+        if (!video.paused && video.currentTime > lastCurrentTime + 0.1) {
+          lastCurrentTime = video.currentTime;
+          lastProgressTime = now;
+          hideLoading();
+          return;
+        }
+
+        // If video is supposed to be playing but has not progressed for > 2.5 seconds
+        if (now - lastProgressTime > 2500) {
+          showLoading("Syncing live broadcast...");
+
+          if (video.paused) {
+            video.play().catch(() => {});
+          }
+
+          if (player.isLive()) {
+            const seekRange = player.seekRange();
+            if (seekRange && seekRange.end) {
+              const target = Math.max(seekRange.start, seekRange.end - 5);
+              if (Math.abs(video.currentTime - target) > 1.5) {
+                video.currentTime = target;
+              }
+            }
+          }
+        }
+
+        // If stuck for > 6.5 seconds, cleanly reconnect
+        if (now - lastProgressTime > 6500) {
+          lastProgressTime = now;
+          loadStream();
+        }
+      }, 1000);
     }
 
     function onPlayerErrorEvent(event) {
@@ -402,7 +489,7 @@
     function retryStream(e) {
       if (e) e.stopPropagation();
       errorOverlay.style.display = 'none';
-      loadingOverlay.style.display = 'flex';
+      showLoading("Reconnecting to PBB Live Feed...");
       loadStream();
     }
 
