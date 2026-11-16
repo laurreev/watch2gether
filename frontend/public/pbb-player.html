@@ -24,6 +24,7 @@
       align-items: center;
       justify-content: center;
       background: #000;
+      cursor: pointer;
     }
     video {
       width: 100%;
@@ -31,6 +32,7 @@
       object-fit: contain;
       background: #000;
     }
+    /* Loading overlay */
     #loading-overlay {
       position: absolute;
       inset: 0;
@@ -41,6 +43,7 @@
       justify-content: center;
       z-index: 10;
       transition: opacity 0.3s ease;
+      pointer-events: none;
     }
     .spinner {
       width: 44px;
@@ -59,6 +62,7 @@
       color: #cbd5e1;
       font-weight: 500;
     }
+    /* Error / Retry overlay */
     #error-overlay {
       display: none;
       position: absolute;
@@ -98,28 +102,32 @@
     .retry-btn:hover {
       background: #dc2626;
     }
+    /* Unmute overlay button */
     #unmute-btn {
       display: none;
       position: absolute;
       top: 14px;
       left: 14px;
       z-index: 30;
-      background: rgba(15, 23, 42, 0.9);
-      border: 1px solid rgba(239, 68, 68, 0.4);
+      background: rgba(15, 23, 42, 0.92);
+      border: 1px solid rgba(239, 68, 68, 0.5);
       color: #fff;
-      padding: 7px 14px;
+      padding: 8px 16px;
       border-radius: 999px;
       font-size: 12px;
-      font-weight: 600;
+      font-weight: 700;
       cursor: pointer;
       backdrop-filter: blur(8px);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 4px 18px rgba(0, 0, 0, 0.6);
       align-items: center;
       gap: 6px;
+      transition: all 0.2s ease;
     }
     #unmute-btn:hover {
       background: #ef4444;
+      transform: scale(1.04);
     }
+    /* Clean controls overlay (Mute, PiP, Fullscreen - NO seek / pause) */
     #controls {
       position: absolute;
       bottom: 0;
@@ -183,7 +191,7 @@
 </head>
 <body>
   <div id="player-container">
-    <video id="video" autoplay playsinline></video>
+    <video id="video" autoplay playsinline muted></video>
 
     <div id="loading-overlay">
       <div class="spinner"></div>
@@ -193,11 +201,11 @@
     <div id="error-overlay">
       <div class="error-title">Signal Interrupted</div>
       <div class="error-desc" id="error-desc">Camera broadcast feed could not be loaded. Please retry or switch cameras.</div>
-      <button class="retry-btn" onclick="retryStream()">Reconnect</button>
+      <button class="retry-btn" onclick="retryStream(event)">Reconnect</button>
     </div>
 
-    <button id="unmute-btn" onclick="toggleMute()">
-      🔊 Click to Unmute
+    <button id="unmute-btn" onclick="toggleMute(event)">
+      🔊 Click to Unmute Audio
     </button>
 
     <div id="controls">
@@ -206,9 +214,9 @@
         <span id="channel-name">PBB Live</span>
       </div>
       <div class="control-actions">
-        <button class="ctrl-btn" id="mute-toggle" onclick="toggleMute()" title="Mute/Unmute">🔊</button>
-        <button class="ctrl-btn" id="pip-btn" onclick="togglePip()" title="Picture in Picture">🔲</button>
-        <button class="ctrl-btn" id="fs-btn" onclick="toggleFullscreen()" title="Fullscreen">⛶</button>
+        <button class="ctrl-btn" id="mute-toggle" onclick="toggleMute(event)" title="Mute/Unmute">🔇</button>
+        <button class="ctrl-btn" id="pip-btn" onclick="togglePip(event)" title="Picture in Picture">🔲</button>
+        <button class="ctrl-btn" id="fs-btn" onclick="toggleFullscreen(event)" title="Fullscreen">⛶</button>
       </div>
     </div>
   </div>
@@ -266,9 +274,30 @@
 
     let player = null;
 
-    if (params.get('mute') === '1') {
-      video.muted = true;
+    // Start muted by default to guarantee autoplay without browser policy blocks
+    video.muted = true;
+
+    function hideLoading() {
+      loadingOverlay.style.display = 'none';
+      errorOverlay.style.display = 'none';
+      if (video.muted) {
+        unmuteBtn.style.display = 'flex';
+        muteToggle.textContent = '🔇';
+      } else {
+        unmuteBtn.style.display = 'none';
+        muteToggle.textContent = '🔊';
+      }
+      try {
+        window.parent.postMessage({ type: 'playerReady', channel: chParam }, '*');
+      } catch(e) {}
     }
+
+    video.addEventListener('playing', hideLoading);
+    video.addEventListener('timeupdate', () => {
+      if (video.currentTime > 0) hideLoading();
+    });
+    video.addEventListener('loadeddata', hideLoading);
+    video.addEventListener('canplay', hideLoading);
 
     async function initApp() {
       shaka.polyfill.installAll();
@@ -279,6 +308,15 @@
 
       player = new shaka.Player(video);
       player.addEventListener('error', onPlayerErrorEvent);
+
+      player.addEventListener('buffering', (event) => {
+        if (event.buffering) {
+          loadingOverlay.style.display = 'flex';
+          document.getElementById('loading-label').textContent = 'Buffering live feed...';
+        } else {
+          hideLoading();
+        }
+      });
 
       player.getNetworkingEngine().registerRequestFilter((type, request) => {
         delete request.headers['Referer'];
@@ -306,6 +344,7 @@
         }
       });
 
+      // Prevent seeking/rewinding on live stream
       video.addEventListener('seeking', () => {
         if (player && player.isLive()) {
           const seekRange = player.seekRange();
@@ -315,21 +354,6 @@
         }
       });
 
-      video.addEventListener('playing', () => {
-        loadingOverlay.style.display = 'none';
-        errorOverlay.style.display = 'none';
-        if (video.muted) {
-          unmuteBtn.style.display = 'flex';
-          muteToggle.textContent = '🔇';
-        } else {
-          unmuteBtn.style.display = 'none';
-          muteToggle.textContent = '🔊';
-        }
-        try {
-          window.parent.postMessage({ type: 'playerReady', channel: chParam }, '*');
-        } catch(e) {}
-      });
-
       await loadStream();
     }
 
@@ -337,27 +361,26 @@
       loadingOverlay.style.display = 'flex';
       errorOverlay.style.display = 'none';
 
-      // 1. Try direct Akamai DASH with ClearKey
       try {
         await player.load(channel.dash);
-        await video.play().catch(() => {
+        hideLoading();
+        await video.play().catch((err) => {
+          console.warn("Autoplay with audio blocked, ensuring muted playback...", err);
           video.muted = true;
-          unmuteBtn.style.display = 'flex';
-          muteToggle.textContent = '🔇';
           return video.play();
         });
+        hideLoading();
       } catch (err) {
         console.warn("Direct DASH load failed, trying proxy stream...", err);
-        // 2. Try proxied DASH stream
         try {
           const proxyUrl = '/api/tv/proxy?url=' + encodeURIComponent(channel.dash);
           await player.load(proxyUrl);
+          hideLoading();
           await video.play().catch(() => {
             video.muted = true;
-            unmuteBtn.style.display = 'flex';
-            muteToggle.textContent = '🔇';
             return video.play();
           });
+          hideLoading();
         } catch (proxyErr) {
           console.error("Proxied load failed as well:", proxyErr);
           showError("Unable to establish connection to Kuya's live camera feed. (Error: " + (err.message || err.code || 'Playback error') + ")");
@@ -376,27 +399,34 @@
       errorDesc.textContent = msg;
     }
 
-    function retryStream() {
+    function retryStream(e) {
+      if (e) e.stopPropagation();
       errorOverlay.style.display = 'none';
       loadingOverlay.style.display = 'flex';
       loadStream();
     }
 
-    function toggleMute() {
+    function toggleMute(e) {
+      if (e) e.stopPropagation();
       video.muted = !video.muted;
       unmuteBtn.style.display = video.muted ? 'flex' : 'none';
       muteToggle.textContent = video.muted ? '🔇' : '🔊';
-    }
-
-    function togglePip() {
-      if (document.pictureInPictureElement) {
-        document.exitPictureInPicture();
-      } else if (video.requestPictureInPicture) {
-        video.requestPictureInPicture();
+      if (!video.muted && video.paused) {
+        video.play().catch(() => {});
       }
     }
 
-    function toggleFullscreen() {
+    function togglePip(e) {
+      if (e) e.stopPropagation();
+      if (document.pictureInPictureElement) {
+        document.exitPictureInPicture().catch(() => {});
+      } else if (video.requestPictureInPicture) {
+        video.requestPictureInPicture().catch(() => {});
+      }
+    }
+
+    function toggleFullscreen(e) {
+      if (e) e.stopPropagation();
       const container = document.getElementById('player-container');
       if (!document.fullscreenElement) {
         container.requestFullscreen().catch(() => {});
@@ -404,6 +434,16 @@
         document.exitFullscreen().catch(() => {});
       }
     }
+
+    // Click anywhere on player to play or toggle audio
+    document.getElementById('player-container').addEventListener('click', (e) => {
+      if (e.target.closest('button')) return;
+      if (video.paused) {
+        video.play().catch(() => {});
+      } else if (video.muted) {
+        toggleMute();
+      }
+    });
 
     window.addEventListener('message', (event) => {
       const data = event.data;
@@ -416,6 +456,7 @@
         video.muted = false;
         unmuteBtn.style.display = 'none';
         muteToggle.textContent = '🔊';
+        if (video.paused) video.play().catch(() => {});
       } else if (data.type === 'volume' && typeof data.value === 'number') {
         video.volume = Math.max(0, Math.min(1, data.value));
       } else if (data.type === 'play') {
