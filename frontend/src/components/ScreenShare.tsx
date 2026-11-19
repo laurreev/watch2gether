@@ -760,9 +760,9 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                      onChange={(e) => handleServerChange(e.target.value)}
                      disabled={isExtractingServer}
                    >
-                       <option value="1">Vidstuck</option>
+                       <option value="1">VidFast</option>
                        <option value="2">ZXCServer</option>
-                       <option value="3">VidFast</option>
+                       <option value="3">Vidstuck</option>
                        <option value="4">VidSrc</option>
                        <option value="5">Vidlink</option>
                        <option value="6">CineSrc</option>

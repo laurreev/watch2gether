@@ -310,12 +310,12 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
     const tmdbId = url;
     const seasonNum = season || 1;
     
-    // Server 1: Vidstuck (Primary / Default Player with Multi-Subtitles)
-    if (server === '1' || server === 'vidstuck') {
+    // Server 1: VidFast (Primary / Default Player - Fast HD & Multi-Audio/Subtitles)
+    if (server === '1' || server === 'vidfast') {
         if (ep !== undefined && ep !== null) {
-            return `https://vidstuck.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+            return `https://vidfast.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://vidstuck.cc/player/movie/${tmdbId}`;
+        return `https://vidfast.pro/movie/${tmdbId}`;
     }
 
     // Server 2: ZXCServer (ZXCStream Main Player)
@@ -326,12 +326,12 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
         return `https://zxcstream.cc/player/movie/${tmdbId}`;
     }
 
-    // Server 3: VidFast (Fast HD & Multi-Audio/Subtitles)
-    if (server === '3' || server === 'vidfast') {
+    // Server 3: Vidstuck (Multi-Subtitles)
+    if (server === '3' || server === 'vidstuck') {
         if (ep !== undefined && ep !== null) {
-            return `https://vidfast.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
+            return `https://vidstuck.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
-        return `https://vidfast.pro/movie/${tmdbId}`;
+        return `https://vidstuck.cc/player/movie/${tmdbId}`;
     }
 
     // Server 4: VidSrc (vidsrc.me)
@@ -374,11 +374,11 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
         return `https://vidsrc.pm/embed/movie/${tmdbId}`;
     }
 
-    // Default fallback: Vidstuck (Primary)
+    // Default fallback: VidFast (Primary)
     if (ep !== undefined && ep !== null) {
-        return `https://vidstuck.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+        return `https://vidfast.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
     }
-    return `https://vidstuck.cc/player/movie/${tmdbId}`;
+    return `https://vidfast.pro/movie/${tmdbId}`;
 };
 
 export interface MediaDetails {
