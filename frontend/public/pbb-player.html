@@ -310,20 +310,51 @@
 // All requests go through no-referrer sandbox bridge to bypass domain whitelist
 // ═══════════════════════════════════════════════════
 const AKAMAI = "https://absp-live.akamaized.net";
+const PBB_ORIGIN = "https://pbbcollab.com";
 const CHANNELS = {
-  all:  { dash: AKAMAI+"/dash/live/2099522/pbbcollab30allaccesslivestream/manifest.mpd",
-          hls:  AKAMAI+"/hls/live/2099522/pbbcollab30allaccesslivestream/master.m3u8",
-          kid: "8150b74d16324bb4b2ff62e3e202fc7a", key: "0c5ed4f9db9d4ee61bbc91b3a51ef8b5" },
-  ext:  { dash: AKAMAI+"/dash/live/2099522/pbbcollab30allaccesslivestream-externalden/manifest.mpd",
-          hls:  AKAMAI+"/hls/live/2099522/pbbcollab30allaccesslivestream-externalden/master.m3u8",
+  all:  { dash: "/api/pbb/mpd/all", fallbackDash: PBB_ORIGIN+"/api/live/mpd/all.mpd?srv=s1",
+          hls:  PBB_ORIGIN+"/api/live/mpd/all.mpd?srv=s1",
+          kid: "b75e0a8315d0499b834c00a3d5b91935", key: "39876c3c4f32a11dee56078febbb67dd" },
+  ext:  { dash: "/api/pbb/mpd/ext", fallbackDash: PBB_ORIGIN+"/api/live/mpd/ext.mpd?srv=s1",
+          hls:  PBB_ORIGIN+"/api/live/mpd/ext.mpd?srv=s1",
           kid: "b750a40736a24e60b5a4f256208b92c5", key: "af07292597f692726dcac2bd297ddf8e" },
-  din:  { dash: AKAMAI+"/dash/live/2099522/pbbcollab30allaccesslivestream-diningarea/manifest.mpd",
-          hls:  AKAMAI+"/hls/live/2099522/pbbcollab30allaccesslivestream-diningarea/master.m3u8",
+  din:  { dash: "/api/pbb/mpd/din", fallbackDash: PBB_ORIGIN+"/api/live/mpd/din.mpd?srv=s1",
+          hls:  PBB_ORIGIN+"/api/live/mpd/din.mpd?srv=s1",
           kid: "ea6588d030c94ca89925ac0c49974430", key: "3e6de4afee1eff8e14f9506b76ac9ee6" },
-  main: { dash: AKAMAI+"/dash/live/2099522/pinoybigbrothercollabedition30live/manifest.mpd",
-          hls:  AKAMAI+"/hls/live/2099522/pinoybigbrothercollabedition30live/master.m3u8",
+  main: { dash: "/api/pbb/mpd/main", fallbackDash: PBB_ORIGIN+"/api/live/mpd/main.mpd?srv=s1",
+          hls:  PBB_ORIGIN+"/api/live/mpd/main.mpd?srv=s1",
           kid: "1044e7ece2d741bcafe80d8613da104f", key: "f5e17f169ff05ea40c5d3f065f523942" },
 };
+
+async function syncMetadata() {
+  try {
+    const endpoints = ["/api/pbb/stream", PBB_ORIGIN + "/api/live/stream"];
+    for (const ep of endpoints) {
+      try {
+        const res = await fetch(ep, { signal: AbortSignal.timeout(2500) });
+        if (res.ok) {
+          const json = await res.json();
+          if (json && json.success && Array.isArray(json.streams)) {
+            for (const s of json.streams) {
+              const target = CHANNELS[s.id];
+              if (target) {
+                if (s.kid) target.kid = s.kid.replace(/[^0-9a-fA-F]/g, "").toLowerCase();
+                if (s.key) target.key = s.key;
+                if (s.dashUrl) {
+                  target.fallbackDash = s.dashUrl.startsWith("http") ? s.dashUrl : (PBB_ORIGIN + (s.dashUrl.endsWith('.mpd') ? s.dashUrl : s.dashUrl + '.mpd?srv=s1'));
+                }
+              }
+            }
+            console.log("[PBB] Stream metadata & keys synced dynamically");
+            break;
+          }
+        }
+      } catch (err) {}
+    }
+  } catch (e) {
+    console.warn("[PBB] syncMetadata notice:", e);
+  }
+}
 
 
 CHANNELS.all.name = "Cam 1 — All Access (Living Area)";
@@ -411,11 +442,16 @@ async function directFetch(url) {
 }
 
 function bridgeFetch(url, timeout = 15000) {
-  // iOS/Safari: use freeshorts.tech nginx proxy (same-origin, proven to work)
-  // Desktop: use sandbox bridge iframe (sends Origin: null)
+  // Direct fetch for local endpoints
+  if (url.startsWith("/") || (typeof location !== "undefined" && url.startsWith(location.origin))) {
+    return directFetch(url);
+  }
+  // iOS/Safari: Try direct fetch with no-referrer or backend proxy fallback
   if (isIOS) {
-    const proxyUrl = url.replace("https://absp-live.akamaized.net/", "/");
-    return directFetch(proxyUrl);
+    return directFetch(url).catch(() => {
+      const proxyUrl = '/api/tv/proxy?url=' + encodeURIComponent(url);
+      return directFetch(proxyUrl);
+    });
   }
   return new Promise(async (resolve, reject) => {
     const win = await ensureBridge();
@@ -774,7 +810,11 @@ function parseMpd(xmlText, baseUrl) {
 }
 
 function resolveUrl(base, relative) {
-  if (relative.startsWith("http")) return relative;
+  if (!relative) return "";
+  if (relative.startsWith("http://") || relative.startsWith("https://")) return relative;
+  if (relative.startsWith("/")) {
+    return AKAMAI + relative;
+  }
   return base.substring(0, base.lastIndexOf("/") + 1) + relative;
 }
 
@@ -806,10 +846,13 @@ async function startIOSPlayer() {
 
     const mpdUrl = ch.dash;
     await ensureBridge();
-    const mpdMsg = await bridgeFetch(mpdUrl);
+    let mpdMsg = await bridgeFetch(mpdUrl);
+    if (!mpdMsg.ok && ch.fallbackDash && mpdUrl !== ch.fallbackDash) {
+      mpdMsg = await bridgeFetch(ch.fallbackDash);
+    }
     if (!mpdMsg.ok) throw new Error("MPD fetch failed: " + mpdMsg.status);
     const mpdText = new TextDecoder().decode(mpdMsg.data);
-    const mpd = parseMpd(mpdText, mpdUrl);
+    const mpd = parseMpd(mpdText, ch.fallbackDash || mpdUrl);
     if (!mpd.videoTiers.length) throw new Error("No video tiers");
 
     let tierIdx = 0;
@@ -1056,10 +1099,11 @@ async function startShakaPlayer() {
       try {
         const text = new TextDecoder().decode(resp.data);
         let xml = text;
+        const akamaiBase = "<BaseURL>" + AKAMAI + "/</BaseURL>";
         if (/<BaseURL>[\s\S]*?<\/BaseURL>/i.test(xml)) {
-          xml = xml.replace(/<BaseURL>[\s\S]*?<\/BaseURL>/gi, "<BaseURL>" + baseUrl + "</BaseURL>");
+          xml = xml.replace(/<BaseURL>[\s\S]*?<\/BaseURL>/gi, akamaiBase);
         } else {
-          xml = xml.replace(/(<MPD\b[^>]*>)/i, "$1\n  <BaseURL>" + baseUrl + "</BaseURL>");
+          xml = xml.replace(/(<MPD\b[^>]*>)/i, "$1\n  " + akamaiBase);
         }
         const r = transformMpd(xml, activeKid);
         if (r.kid) {
@@ -1086,36 +1130,43 @@ async function startShakaPlayer() {
   // Register networking plugin: use sandbox bridge for all Akamai requests (no-referrer)
   const net = p.getNetworkingEngine();
   net.registerRequestFilter((type, request) => {
-    // Tag Akamai requests so we know to use bridge
-    const uri = request.uris[0] || "";
-    if (uri.includes("akamaized.net")) {
+    let uri = request.uris[0] || "";
+    if (uri.includes("/dash/live/")) {
+      uri = uri.replace(/^https?:\/\/[^\/]+/, AKAMAI);
+      request.uris[0] = uri;
+      request._useBridge = true;
+    } else if (uri.includes("akamaized.net")) {
       request._useBridge = true;
     }
   });
 
-  // Override the default HTTP plugin with bridge-aware fetch
-  shaka.net.NetworkingEngine.registerScheme("https", (uri, request, requestType, progressUpdated, headersReceived) => {
-    const abort = new shaka.util.AbortableOperation.notAbortable();
-    if (!request._useBridge && !String(uri).includes("akamaized.net")) {
-      // Normal fetch for non-Akamai
-      return shaka.net.HttpFetchPlugin.parse(uri, request, requestType, progressUpdated, headersReceived);
+  // Override default HTTP plugins with bridge-aware fetch
+  const handleCustomScheme = (...args) => {
+    const [uri, request] = args;
+    const uriStr = String(uri);
+    if (!request._useBridge && !uriStr.includes("akamaized.net") && !uriStr.includes("/dash/live/")) {
+      return shaka.net.HttpFetchPlugin.parse(...args);
     }
-    // Use bridge for Akamai
-    const promise = bridgeFetch(String(uri), 15000).then(msg => {
+    const targetUrl = uriStr.includes("/dash/live/") && !uriStr.includes("akamaized.net")
+      ? uriStr.replace(/^https?:\/\/[^\/]+/, AKAMAI)
+      : uriStr;
+    const promise = bridgeFetch(targetUrl, 15000).then(msg => {
       if (!msg.ok) throw new Error("Bridge fetch failed: " + (msg.error || msg.status));
-      const resp = {
-        uri: String(uri),
-        originalUri: String(uri),
+      return {
+        uri: targetUrl,
+        originalUri: uriStr,
         data: msg.data,
         headers: {},
         status: msg.status,
         timeMs: 0,
         fromCache: false,
       };
-      return resp;
     });
     return new shaka.util.AbortableOperation(promise, () => Promise.resolve());
-  });
+  };
+  const priority = (shaka.net.NetworkingEngine.PluginPriority && shaka.net.NetworkingEngine.PluginPriority.APPLICATION) || 4;
+  shaka.net.NetworkingEngine.registerScheme("https", handleCustomScheme, priority);
+  shaka.net.NetworkingEngine.registerScheme("http", handleCustomScheme, priority);
 
   p.configure({
     streaming: { bufferingGoal: 30, rebufferingGoal: 3, bufferBehind: 20, segmentPrefetchLimit: 2,
@@ -1134,7 +1185,16 @@ async function startShakaPlayer() {
   });
 
   try {
-    await p.load(ch.dash);
+    try {
+      await p.load(ch.dash);
+    } catch(primaryErr) {
+      if (ch.fallbackDash && ch.fallbackDash !== ch.dash) {
+        console.warn("[Player] Primary manifest failed, trying fallback:", primaryErr);
+        await p.load(ch.fallbackDash);
+      } else {
+        throw primaryErr;
+      }
+    }
     // Force select highest quality track immediately (no ABR ramp-up)
     if (!lowBandwidth) {
       try {
@@ -1170,6 +1230,7 @@ async function startShakaPlayer() {
 // ═══════════════════════════════════════════════════
 
 async function startPlayer() {
+  await syncMetadata();
   stopIOSPlayer();
   if (player) { try { await player.destroy(); } catch(e){} player = null; }
   errorEl.style.display = "none";
@@ -1336,22 +1397,24 @@ startPlayer();
 
       // Hide loading on playback events
       v.addEventListener('playing', hideLoading);
-      v.addEventListener('loadeddata', hideLoading);
-      v.addEventListener('canplay', () => {
-        if (!v.paused) hideLoading();
+      v.addEventListener('loadedmetadata', () => {
+        if (v.videoWidth > 0) hideLoading();
       });
+      v.addEventListener('loadeddata', hideLoading);
+      v.addEventListener('canplay', hideLoading);
+      v.addEventListener('canplaythrough', hideLoading);
       v.addEventListener('timeupdate', () => {
-        if (v.currentTime > 0) hideLoading();
+        if (v.currentTime > 0 || v.videoWidth > 0) hideLoading();
       });
 
-      // Visual rendering detector: dismiss overlay as soon as pixels render
+      // Visual rendering detector: dismiss overlay as soon as frame/pixels render
       const frameCheckInterval = setInterval(() => {
-        if (v.videoWidth > 0 && !v.paused) {
+        if (v.videoWidth > 0 || v.currentTime > 0 || v.readyState >= 3) {
           hideLoading();
           clearInterval(frameCheckInterval);
         }
-      }, 200);
-      setTimeout(() => clearInterval(frameCheckInterval), 20000);
+      }, 150);
+      setTimeout(() => clearInterval(frameCheckInterval), 12000);
 
       // Non-blocking buffering detection (badge only, never blocks screen)
       let bufferTimer = null;

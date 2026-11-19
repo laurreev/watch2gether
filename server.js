@@ -393,6 +393,58 @@ app.get('/api/pbb/feeds', (req, res) => {
     }
 });
 
+app.get('/api/pbb/stream', async (req, res) => {
+    try {
+        const data = await tvService.getLivePbbStream();
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        res.json(data);
+    } catch (err) {
+        console.error('PBB Stream Metadata Error:', err);
+        res.status(500).json({ error: 'Failed to fetch PBB stream metadata' });
+    }
+});
+
+app.get('/api/pbb/mpd/:channel', async (req, res) => {
+    try {
+        const xml = await tvService.getLivePbbMpd(req.params.channel);
+        if (xml) {
+            res.setHeader('Content-Type', 'application/dash+xml');
+            res.setHeader('Access-Control-Allow-Origin', '*');
+            res.setHeader('Cache-Control', 'public, max-age=2');
+            res.send(xml);
+        } else {
+            res.status(502).send('Failed to fetch manifest');
+        }
+    } catch (err) {
+        console.error('PBB MPD Proxy Error:', err);
+        res.status(500).send('Manifest proxy error');
+    }
+});
+
+// Proxy Akamai DASH segments for iOS and clients that cannot use direct bridge fetch
+app.use('/dash/live', async (req, res) => {
+    const targetUrl = 'https://absp-live.akamaized.net/dash/live' + req.url;
+    try {
+        const upstream = await fetch(targetUrl, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+                'Origin': 'null'
+            },
+            signal: AbortSignal.timeout(15000)
+        });
+        if (!upstream.ok) {
+            return res.status(upstream.status).end();
+        }
+        res.setHeader('Access-Control-Allow-Origin', '*');
+        const ct = upstream.headers.get('content-type');
+        if (ct) res.setHeader('Content-Type', ct);
+        const { Readable } = require('stream');
+        Readable.fromWeb(upstream.body).pipe(res);
+    } catch (err) {
+        res.status(502).end();
+    }
+});
+
 // Serve frontend in production
 if (process.env.NODE_ENV === 'production') {
     app.use(express.static(path.join(__dirname, 'frontend/dist')));

@@ -50,8 +50,8 @@ export const DEFAULT_PBB_FEEDS: PbbFeed[] = [
     isLive: true,
     badge: 'LIVE 24/7',
     url: '/pbb-player.html?ch=all',
-    dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream/manifest.mpd',
-    hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream/master.m3u8',
+    dashUrl: 'https://pbbcollab.com/api/live/mpd/all.mpd?srv=s1',
+    hlsUrl: 'https://pbbcollab.com/api/live/mpd/all.mpd?srv=s1',
   },
   {
     id: 'pbb-cam-2',
@@ -65,8 +65,8 @@ export const DEFAULT_PBB_FEEDS: PbbFeed[] = [
     isLive: true,
     badge: 'LIVE 24/7',
     url: '/pbb-player.html?ch=ext',
-    dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream-externalden/manifest.mpd',
-    hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream-externalden/master.m3u8',
+    dashUrl: 'https://pbbcollab.com/api/live/mpd/ext.mpd?srv=s1',
+    hlsUrl: 'https://pbbcollab.com/api/live/mpd/ext.mpd?srv=s1',
   },
   {
     id: 'pbb-cam-3',
@@ -80,8 +80,8 @@ export const DEFAULT_PBB_FEEDS: PbbFeed[] = [
     isLive: true,
     badge: 'LIVE 24/7',
     url: '/pbb-player.html?ch=din',
-    dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream-diningarea/manifest.mpd',
-    hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream-diningarea/master.m3u8',
+    dashUrl: 'https://pbbcollab.com/api/live/mpd/din.mpd?srv=s1',
+    hlsUrl: 'https://pbbcollab.com/api/live/mpd/din.mpd?srv=s1',
   },
   {
     id: 'pbb-cam-4',
@@ -95,8 +95,8 @@ export const DEFAULT_PBB_FEEDS: PbbFeed[] = [
     isLive: true,
     badge: 'LIVE 24/7',
     url: '/pbb-player.html?ch=main',
-    dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pinoybigbrothercollabedition30live/manifest.mpd',
-    hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pinoybigbrothercollabedition30live/master.m3u8',
+    dashUrl: 'https://pbbcollab.com/api/live/mpd/main.mpd?srv=s1',
+    hlsUrl: 'https://pbbcollab.com/api/live/mpd/main.mpd?srv=s1',
   },
   {
     id: 'pbb-kol-live',

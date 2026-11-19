@@ -1158,6 +1158,71 @@ async function proxyStream(req, res) {
     }
 }
 
+let pbbStreamCache = null;
+let pbbStreamCacheTime = 0;
+const pbbMpdCache = new Map();
+
+async function getLivePbbStream() {
+    const now = Date.now();
+    if (pbbStreamCache && (now - pbbStreamCacheTime) < 60000) {
+        return pbbStreamCache;
+    }
+    try {
+        const res = await fetch('https://pbbcollab.com/api/live/stream', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+                'Referer': 'https://pbbcollab.com/live'
+            },
+            signal: AbortSignal.timeout(6000)
+        });
+        if (res.ok) {
+            const data = await res.json();
+            if (data && data.success && Array.isArray(data.streams)) {
+                pbbStreamCache = data;
+                pbbStreamCacheTime = now;
+                return data;
+            }
+        }
+    } catch (err) {
+        console.warn('[TV] Live PBB stream fetch failed, using fallback:', err.message);
+    }
+    return pbbStreamCache || { success: false, streams: [] };
+}
+
+async function getLivePbbMpd(channel) {
+    const ch = (channel || 'all').toLowerCase().replace(/[^a-z0-9]/g, '');
+    const now = Date.now();
+    const cached = pbbMpdCache.get(ch);
+    if (cached && (now - cached.time) < 3000) {
+        return cached.xml;
+    }
+    try {
+        const url = `https://pbbcollab.com/api/live/mpd/${ch}.mpd?srv=s1`;
+        const res = await fetch(url, {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36',
+                'Referer': 'https://pbbcollab.com/live'
+            },
+            signal: AbortSignal.timeout(6000)
+        });
+        if (res.ok) {
+            let xml = await res.text();
+            // Inject Akamai BaseURL so relative segments resolve cleanly to Akamai
+            const akamaiBase = '<BaseURL>https://absp-live.akamaized.net/</BaseURL>';
+            if (/<BaseURL>[\s\S]*?<\/BaseURL>/i.test(xml)) {
+                xml = xml.replace(/<BaseURL>[\s\S]*?<\/BaseURL>/gi, akamaiBase);
+            } else {
+                xml = xml.replace(/(<MPD\b[^>]*>)/i, `$1\n  ${akamaiBase}`);
+            }
+            pbbMpdCache.set(ch, { xml, time: now });
+            return xml;
+        }
+    } catch (err) {
+        console.warn(`[TV] Failed to fetch PBB MPD for ${ch}:`, err.message);
+    }
+    return cached?.xml || null;
+}
+
 const PBB_FEEDS = [
     {
         id: 'pbb-cam-1',
@@ -1171,8 +1236,8 @@ const PBB_FEEDS = [
         isLive: true,
         badge: 'LIVE 24/7',
         url: '/pbb-player.html?ch=all',
-        dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream/manifest.mpd',
-        hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream/master.m3u8'
+        dashUrl: 'https://pbbcollab.com/api/live/mpd/all.mpd?srv=s1',
+        hlsUrl: 'https://pbbcollab.com/api/live/mpd/all.mpd?srv=s1'
     },
     {
         id: 'pbb-cam-2',
@@ -1186,8 +1251,8 @@ const PBB_FEEDS = [
         isLive: true,
         badge: 'LIVE 24/7',
         url: '/pbb-player.html?ch=ext',
-        dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream-externalden/manifest.mpd',
-        hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream-externalden/master.m3u8'
+        dashUrl: 'https://pbbcollab.com/api/live/mpd/ext.mpd?srv=s1',
+        hlsUrl: 'https://pbbcollab.com/api/live/mpd/ext.mpd?srv=s1'
     },
     {
         id: 'pbb-cam-3',
@@ -1201,8 +1266,8 @@ const PBB_FEEDS = [
         isLive: true,
         badge: 'LIVE 24/7',
         url: '/pbb-player.html?ch=din',
-        dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pbbcollab30allaccesslivestream-diningarea/manifest.mpd',
-        hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pbbcollab30allaccesslivestream-diningarea/master.m3u8'
+        dashUrl: 'https://pbbcollab.com/api/live/mpd/din.mpd?srv=s1',
+        hlsUrl: 'https://pbbcollab.com/api/live/mpd/din.mpd?srv=s1'
     },
     {
         id: 'pbb-cam-4',
@@ -1216,8 +1281,8 @@ const PBB_FEEDS = [
         isLive: true,
         badge: 'LIVE 24/7',
         url: '/pbb-player.html?ch=main',
-        dashUrl: 'https://absp-live.akamaized.net/dash/live/2099522/pinoybigbrothercollabedition30live/manifest.mpd',
-        hlsUrl: 'https://absp-live.akamaized.net/hls/live/2099522/pinoybigbrothercollabedition30live/master.m3u8'
+        dashUrl: 'https://pbbcollab.com/api/live/mpd/main.mpd?srv=s1',
+        hlsUrl: 'https://pbbcollab.com/api/live/mpd/main.mpd?srv=s1'
     },
     {
         id: 'pbb-kol-live',
@@ -1272,5 +1337,7 @@ module.exports = {
     queryTvChannels,
     proxyStream,
     getPbbFeeds,
+    getLivePbbStream,
+    getLivePbbMpd,
     PBB_FEEDS
 };
