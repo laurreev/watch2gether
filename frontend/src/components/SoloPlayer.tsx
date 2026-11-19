@@ -39,13 +39,14 @@ const SoloPlayer: React.FC<SoloPlayerProps> = ({ media, episode, season, onBack 
               onChange={(e) => setServer(e.target.value)}
               style={{ width: 'auto', padding: '0.4rem 1rem', borderRadius: '4px', background: '#222', color: 'white', border: '1px solid #444' }}
             >
-              <option value="1">ZXCServer 1</option>
-              <option value="2">ZXCServer 2</option>
-              <option value="3">VidSrc</option>
-              <option value="4">Vidlink</option>
-              <option value="5">CineSrc</option>
-              <option value="6">VidSrc TO</option>
-              <option value="7">VidSrc PM</option>
+              <option value="1">Vidstuck</option>
+              <option value="2">ZXCServer</option>
+              <option value="3">VidFast</option>
+              <option value="4">VidSrc</option>
+              <option value="5">Vidlink</option>
+              <option value="6">CineSrc</option>
+              <option value="7">VidSrc TO</option>
+              <option value="8">VidSrc PM</option>
             </select>
           </div>
         </div>

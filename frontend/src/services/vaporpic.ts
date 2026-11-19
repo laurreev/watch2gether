@@ -310,67 +310,75 @@ export const getVaporpicIframe = async (url: string, server?: string, ep?: strin
     const tmdbId = url;
     const seasonNum = season || 1;
     
-    // Server 1: ZXCServer 1 (ZXCStream Main Player)
-    if (server === '1') {
-        if (ep !== undefined && ep !== null) {
-            return `https://zxcstream.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
-        }
-        return `https://zxcstream.cc/player/movie/${tmdbId}`;
-    }
-
-    // Server 2: ZXCServer 2 (Vidstuck Mirror / Multi-Subtitles)
-    if (server === '2') {
+    // Server 1: Vidstuck (Primary / Default Player with Multi-Subtitles)
+    if (server === '1' || server === 'vidstuck') {
         if (ep !== undefined && ep !== null) {
             return `https://vidstuck.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
         return `https://vidstuck.cc/player/movie/${tmdbId}`;
     }
 
-    // Server 3: VidSrc (vidsrc.me)
-    if (server === '3') {
+    // Server 2: ZXCServer (ZXCStream Main Player)
+    if (server === '2' || server === 'zxcstream' || server === 'zxcserver') {
+        if (ep !== undefined && ep !== null) {
+            return `https://zxcstream.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+        }
+        return `https://zxcstream.cc/player/movie/${tmdbId}`;
+    }
+
+    // Server 3: VidFast (Fast HD & Multi-Audio/Subtitles)
+    if (server === '3' || server === 'vidfast') {
+        if (ep !== undefined && ep !== null) {
+            return `https://vidfast.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
+        }
+        return `https://vidfast.pro/movie/${tmdbId}`;
+    }
+
+    // Server 4: VidSrc (vidsrc.me)
+    if (server === '4' || server === 'vidsrc') {
         if (ep !== undefined && ep !== null) {
             return `https://vidsrc.me/embed/tv?tmdb=${tmdbId}&season=${seasonNum}&episode=${ep}`;
         }
         return `https://vidsrc.me/embed/movie?tmdb=${tmdbId}`;
     }
 
-    // Server 4: Vidlink (Anime & HD)
-    if (server === '4') {
+    // Server 5: Vidlink (Anime & HD)
+    if (server === '5' || server === 'vidlink') {
         if (ep !== undefined && ep !== null) {
             return `https://vidlink.pro/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
         return `https://vidlink.pro/movie/${tmdbId}`;
     }
 
-    // Server 5: CineSrc (Unblocked, Fast & Subtitles)
-    if (server === '5') {
+    // Server 6: CineSrc (Unblocked, Fast & Subtitles)
+    if (server === '6' || server === 'cinesrc') {
         if (ep !== undefined && ep !== null) {
             return `https://cinesrc.st/embed/tv/${tmdbId}?s=${seasonNum}&e=${ep}`;
         }
         return `https://cinesrc.st/embed/movie/${tmdbId}`;
     }
 
-    // Server 6: VidSrc TO (Reliable VidSrc Provider)
-    if (server === '6') {
+    // Server 7: VidSrc TO (Reliable VidSrc Provider)
+    if (server === '7' || server === 'vidsrcto') {
         if (ep !== undefined && ep !== null) {
             return `https://vidsrc.to/embed/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
         return `https://vidsrc.to/embed/movie/${tmdbId}`;
     }
     
-    // Server 7: VidSrc PM (VidSrc Mirror)
-    if (server === '7') {
+    // Server 8: VidSrc PM (VidSrc Mirror)
+    if (server === '8' || server === 'vidsrcpm') {
         if (ep !== undefined && ep !== null) {
             return `https://vidsrc.pm/embed/tv/${tmdbId}/${seasonNum}/${ep}`;
         }
         return `https://vidsrc.pm/embed/movie/${tmdbId}`;
     }
 
-    // default fallback (ZXCStream)
+    // Default fallback: Vidstuck (Primary)
     if (ep !== undefined && ep !== null) {
-        return `https://zxcstream.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
+        return `https://vidstuck.cc/player/tv/${tmdbId}/${seasonNum}/${ep}`;
     }
-    return `https://zxcstream.cc/player/movie/${tmdbId}`;
+    return `https://vidstuck.cc/player/movie/${tmdbId}`;
 };
 
 export interface MediaDetails {

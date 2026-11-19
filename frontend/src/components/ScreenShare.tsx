@@ -760,13 +760,14 @@ const ScreenShare: React.FC<ScreenShareProps> = ({ roomId, isOwner, onLeave, onH
                      onChange={(e) => handleServerChange(e.target.value)}
                      disabled={isExtractingServer}
                    >
-                       <option value="1">ZXCServer 1</option>
-                       <option value="2">ZXCServer 2</option>
-                       <option value="3">VidSrc</option>
-                       <option value="4">Vidlink</option>
-                       <option value="5">CineSrc</option>
-                       <option value="6">VidSrc TO</option>
-                       <option value="7">VidSrc PM</option>
+                       <option value="1">Vidstuck</option>
+                       <option value="2">ZXCServer</option>
+                       <option value="3">VidFast</option>
+                       <option value="4">VidSrc</option>
+                       <option value="5">Vidlink</option>
+                       <option value="6">CineSrc</option>
+                       <option value="7">VidSrc TO</option>
+                       <option value="8">VidSrc PM</option>
                     </select>
                  ) : null}
                  <button className="btn btn-danger hide-on-mobile" onClick={() => {
